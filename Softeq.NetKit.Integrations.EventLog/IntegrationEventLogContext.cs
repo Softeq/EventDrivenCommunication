@@ -10,18 +10,14 @@ namespace Softeq.NetKit.Integrations.EventLog
 {
     public class IntegrationEventLogContext : DbContext
     {
-        public IntegrationEventLogContext(DbContextOptions<IntegrationEventLogContext> options, string defaultSchema) : base(options)
+        public IntegrationEventLogContext(DbContextOptions<IntegrationEventLogContext> options) : base(options)
         {
-            _defaultSchema = defaultSchema;
         }
 
         public DbSet<IntegrationEventLog> IntegrationEventLogs { get; set; }
 
-        private readonly string _defaultSchema;
-
         protected override void OnModelCreating(ModelBuilder builder)
 		{
-			builder.HasDefaultSchema(_defaultSchema);
 		    //put db configuration here
 		    base.OnModelCreating(builder);
 
