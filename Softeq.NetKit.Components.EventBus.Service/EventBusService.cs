@@ -109,7 +109,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
         {
             try
             {
-                if (await CheckRuleExistence(RuleDescription.DefaultRuleName))
+                if (await CheckIfRuleExists(RuleDescription.DefaultRuleName))
                 {
                     await _topicConnection.SubscriptionClient.RemoveRuleAsync(RuleDescription.DefaultRuleName);
                 }
@@ -143,7 +143,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 new MessageHandlerOptions(ExceptionReceivedHandler) {MaxConcurrentCalls = 1, AutoComplete = false});
         }
 
-        private async Task<bool> CheckRuleExistence(string ruleName)
+        private async Task<bool> CheckIfRuleExists(string ruleName)
         {
             try
             {
@@ -164,7 +164,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
         {
             try
             {
-                if (!await CheckRuleExistence(eventName))
+                if (!await CheckIfRuleExists(eventName))
                 {
                     await _topicConnection.SubscriptionClient.AddRuleAsync(new RuleDescription
                     {
@@ -176,7 +176,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
             catch (ServiceBusException ex)
             {
                 throw new Exceptions.ServiceBusException(
-                    $"Adding subscription rule (if not exists) for the entity {eventName} failed.", ex.InnerException);
+                    $"Adding subscription rule for the entity {eventName} failed.", ex.InnerException);
             }
         }
 
