@@ -12,6 +12,7 @@ using Softeq.NetKit.Components.EventBus.Events;
 using Softeq.NetKit.Components.EventBus.Managers;
 using Softeq.NetKit.Components.EventBus.Service.Connection;
 using System;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -64,7 +65,8 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 : client.SendAsync(message);
         }
 
-        public async Task SubscribeAsync<TEvent, TEventHandler>() where TEvent : IntegrationEvent where TEventHandler : IEventHandler<TEvent>
+        public async Task SubscribeAsync<TEvent, TEventHandler>() where TEvent : IntegrationEvent
+            where TEventHandler : IEventHandler<TEvent>
         {
             var eventName = typeof(TEvent).Name;
 
@@ -73,14 +75,15 @@ namespace Softeq.NetKit.Components.EventBus.Service
             {
                 if (IsSubscriptionAvailable)
                 {
-                    await AddSubscriptionRule(eventName);
+                    await AddSubscriptionRuleIfNotExists(eventName);
                 }
 
                 _subscriptionsManager.AddSubscription<TEvent, TEventHandler>();
             }
         }
 
-        public async Task UnsubscribeAsync<TEvent, TEventHandler>() where TEvent : IntegrationEvent where TEventHandler : IEventHandler<TEvent>
+        public async Task UnsubscribeAsync<TEvent, TEventHandler>() where TEvent : IntegrationEvent
+            where TEventHandler : IEventHandler<TEvent>
         {
             var eventName = typeof(TEvent).Name;
 
@@ -102,15 +105,19 @@ namespace Softeq.NetKit.Components.EventBus.Service
             _subscriptionsManager.RemoveDynamicSubscription<TEventHandler>(eventName);
         }
 
-        private async Task RemoveDefaultRule()
+        private async Task RemoveDefaultRuleIfExists()
         {
             try
             {
-                await _topicConnection.SubscriptionClient.RemoveRuleAsync(RuleDescription.DefaultRuleName);
+                if (await CheckIfRuleExists(RuleDescription.DefaultRuleName))
+                {
+                    await _topicConnection.SubscriptionClient.RemoveRuleAsync(RuleDescription.DefaultRuleName);
+                }
             }
             catch (MessagingEntityNotFoundException ex)
             {
-                throw new Exceptions.ServiceBusException($"The messaging entity {RuleDescription.DefaultRuleName} could not be found.", ex.InnerException);
+                throw new Exceptions.ServiceBusException(
+                    $"Removing default rule {RuleDescription.DefaultRuleName} (if exists) failed.", ex.InnerException);
             }
         }
 
@@ -118,33 +125,58 @@ namespace Softeq.NetKit.Components.EventBus.Service
         {
             ValidateSubscription();
 
-            await RemoveDefaultRule();
+            await RemoveDefaultRuleIfExists();
 
-            _topicConnection.SubscriptionClient.RegisterMessageHandler(async (message, token) => await HandleReceivedMessage(_topicConnection.SubscriptionClient, _topicConnection.TopicClient, message, token),
-                new MessageHandlerOptions(ExceptionReceivedHandler) { MaxConcurrentCalls = 10, AutoComplete = false });
+            _topicConnection.SubscriptionClient.RegisterMessageHandler(
+                async (message, token) => await HandleReceivedMessage(_topicConnection.SubscriptionClient,
+                    _topicConnection.TopicClient, message, token),
+                new MessageHandlerOptions(ExceptionReceivedHandler) {MaxConcurrentCalls = 10, AutoComplete = false});
         }
 
         public void RegisterQueueListener()
         {
             ValidateQueue();
 
-            _queueConnection.QueueClient.RegisterMessageHandler(async (message, token) => await HandleReceivedMessage(_queueConnection.QueueClient, _queueConnection.QueueClient, message, token),
-                new MessageHandlerOptions(ExceptionReceivedHandler) { MaxConcurrentCalls = 1, AutoComplete = false });
+            _queueConnection.QueueClient.RegisterMessageHandler(
+                async (message, token) => await HandleReceivedMessage(_queueConnection.QueueClient,
+                    _queueConnection.QueueClient, message, token),
+                new MessageHandlerOptions(ExceptionReceivedHandler) {MaxConcurrentCalls = 1, AutoComplete = false});
         }
 
-        private async Task AddSubscriptionRule(string eventName)
+        private async Task<bool> CheckIfRuleExists(string ruleName)
         {
             try
             {
-                await _topicConnection.SubscriptionClient.AddRuleAsync(new RuleDescription
-                {
-                    Filter = new CorrelationFilter { Label = eventName },
-                    Name = eventName
-                });
+                var rules = await _topicConnection.SubscriptionClient.GetRulesAsync();
+
+                return rules != null
+                       && rules.Any(rule =>
+                           string.Equals(rule.Name, ruleName, StringComparison.InvariantCultureIgnoreCase));
             }
             catch (ServiceBusException ex)
             {
-                throw new Exceptions.ServiceBusException($"The messaging entity {eventName} already exists.", ex.InnerException);
+                throw new Exceptions.ServiceBusException(
+                    $"Checking rule {ruleName} existence failed.", ex.InnerException);
+            }
+        }
+
+        private async Task AddSubscriptionRuleIfNotExists(string eventName)
+        {
+            try
+            {
+                if (!await CheckIfRuleExists(eventName))
+                {
+                    await _topicConnection.SubscriptionClient.AddRuleAsync(new RuleDescription
+                    {
+                        Filter = new CorrelationFilter {Label = eventName},
+                        Name = eventName
+                    });
+                }
+            }
+            catch (ServiceBusException ex)
+            {
+                throw new Exceptions.ServiceBusException(
+                    $"Adding subscription rule for the entity {eventName} failed.", ex.InnerException);
             }
         }
 
@@ -156,11 +188,13 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
             catch (MessagingEntityNotFoundException ex)
             {
-                throw new Exceptions.ServiceBusException($"The messaging entity {eventName} could not be found.", ex.InnerException);
+                throw new Exceptions.ServiceBusException($"The messaging entity {eventName} could not be found.",
+                    ex.InnerException);
             }
         }
 
-        private async Task HandleReceivedMessage(IReceiverClient receiverClient, ISenderClient senderClient, Message message, CancellationToken token)
+        private async Task HandleReceivedMessage(IReceiverClient receiverClient, ISenderClient senderClient,
+            Message message, CancellationToken token)
         {
             var eventName = message.Label;
             var messageData = Encoding.UTF8.GetString(message.Body);
@@ -205,7 +239,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
                         var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
                         var integrationEvent = JsonConvert.DeserializeObject(message, eventType);
                         var concreteType = typeof(IEventHandler<>).MakeGenericType(eventType);
-                        await (Task)concreteType.GetMethod("Handle").Invoke(handler, new[] { integrationEvent });
+                        await (Task) concreteType.GetMethod("Handle").Invoke(handler, new[] {integrationEvent});
                     }
                 }
             }
@@ -214,11 +248,12 @@ namespace Softeq.NetKit.Components.EventBus.Service
         private Task ExceptionReceivedHandler(ExceptionReceivedEventArgs exceptionReceivedEventArgs)
         {
             var context = exceptionReceivedEventArgs.ExceptionReceivedContext;
-            _logger.LogInformation($"Message handler encountered an exception {exceptionReceivedEventArgs.Exception}.\n" +
-                                   "Exception context for troubleshooting:\n" +
-                                   $"Endpoint: {context.Endpoint}\n" +
-                                   $"Entity Path: {context.EntityPath}\n" +
-                                   $"Executing Action: {context.Action}");
+            _logger.LogInformation(
+                $"Message handler encountered an exception {exceptionReceivedEventArgs.Exception}.\n" +
+                "Exception context for troubleshooting:\n" +
+                $"Endpoint: {context.Endpoint}\n" +
+                $"Entity Path: {context.EntityPath}\n" +
+                $"Executing Action: {context.Action}");
             return Task.CompletedTask;
         }
 
