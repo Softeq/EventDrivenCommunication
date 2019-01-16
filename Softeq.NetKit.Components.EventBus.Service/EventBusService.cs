@@ -206,10 +206,12 @@ namespace Softeq.NetKit.Components.EventBus.Service
             var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
             if (eventType != null && eventType != typeof(CompletedEvent))
             {
-                dynamic eventData = JObject.Parse(messageData);
-                if (Guid.TryParse(eventData["Id"] as string, out var eventId))
+                var eventData = JObject.Parse(messageData);
+                if (Guid.TryParse((string)eventData["Id"], out var eventId))
                 {
-                    var completedEvent = new CompletedEvent(eventId);
+                    var publisherId = (string)eventData["PublisherId"];
+
+                    var completedEvent = new CompletedEvent(eventId, publisherId);
                     await PublishMessageAsync(completedEvent, senderClient);
                 }
             }
@@ -268,7 +270,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 MessageId = Guid.NewGuid().ToString(),
                 Body = body,
                 Label = eventName,
-                TimeToLive = TimeSpan.FromHours(_messageQueueConfiguration.TimeToLive),
+                TimeToLive = TimeSpan.FromMinutes(_messageQueueConfiguration.TimeToLiveInMinutes),
             };
 
             return message;
