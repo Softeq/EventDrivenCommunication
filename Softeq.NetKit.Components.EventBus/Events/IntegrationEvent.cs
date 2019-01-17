@@ -15,5 +15,7 @@ namespace Softeq.NetKit.Components.EventBus.Events
 
         public Guid Id { get; }
         public DateTimeOffset CreationDate { get; }
+
+        public string PublisherId { get; set; }
     }
 }

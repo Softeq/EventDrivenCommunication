@@ -27,6 +27,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
         private readonly ServiceBusTopicConnection _topicConnection;
         private readonly ServiceBusQueueConnection _queueConnection;
         private readonly ILogger _logger;
+        private readonly EventPublishConfiguration _eventPublishConfiguration;
 
         private bool IsSubscriptionAvailable => _topicConnection?.SubscriptionClient != null;
         private bool IsQueueAvailable => _queueConnection != null;
@@ -35,13 +36,15 @@ namespace Softeq.NetKit.Components.EventBus.Service
             IEventBusSubscriptionsManager subscriptionsManager,
             IServiceProvider serviceProvider,
             ILoggerFactory loggerFactory,
-            MessageQueueConfiguration messageQueueConfiguration)
+            MessageQueueConfiguration messageQueueConfiguration,
+            EventPublishConfiguration eventPublishConfiguration)
         {
             _topicConnection = serviceBusPersisterConnection.TopicConnection;
             _queueConnection = serviceBusPersisterConnection.QueueConnection;
             _subscriptionsManager = subscriptionsManager;
             _serviceProvider = serviceProvider;
             _messageQueueConfiguration = messageQueueConfiguration;
+            _eventPublishConfiguration = eventPublishConfiguration;
             _logger = loggerFactory.CreateLogger(GetType());
         }
 
@@ -59,7 +62,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
 
         private Task PublishMessageAsync(IntegrationEvent @event, ISenderClient client, int? delayInSeconds = null)
         {
-            var message = GetPublishedMessage(@event);
+            var message = GetMessageForPublish(@event);
             return delayInSeconds.HasValue
                 ? client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value))
                 : client.SendAsync(message);
@@ -207,9 +210,9 @@ namespace Softeq.NetKit.Components.EventBus.Service
             if (eventType != null && eventType != typeof(CompletedEvent))
             {
                 var eventData = JObject.Parse(messageData);
-                if (Guid.TryParse((string)eventData["Id"], out var eventId))
+                if (Guid.TryParse((string) eventData["Id"], out var eventId))
                 {
-                    var publisherId = (string)eventData["PublisherId"];
+                    var publisherId = (string) eventData["PublisherId"];
 
                     var completedEvent = new CompletedEvent(eventId, publisherId);
                     await PublishMessageAsync(completedEvent, senderClient);
@@ -259,8 +262,9 @@ namespace Softeq.NetKit.Components.EventBus.Service
             return Task.CompletedTask;
         }
 
-        private Message GetPublishedMessage(IntegrationEvent @event)
+        private Message GetMessageForPublish(IntegrationEvent @event)
         {
+            @event.PublisherId = _eventPublishConfiguration.EventPublisherId;
             var eventName = @event.GetType().Name;
             var jsonMessage = JsonConvert.SerializeObject(@event);
             var body = Encoding.UTF8.GetBytes(jsonMessage);
@@ -270,7 +274,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 MessageId = Guid.NewGuid().ToString(),
                 Body = body,
                 Label = eventName,
-                TimeToLive = TimeSpan.FromMinutes(_messageQueueConfiguration.TimeToLiveInMinutes),
+                TimeToLive = TimeSpan.FromMinutes(_messageQueueConfiguration.TimeToLiveInMinutes)
             };
 
             return message;
