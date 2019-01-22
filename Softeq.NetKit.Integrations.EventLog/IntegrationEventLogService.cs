@@ -62,6 +62,7 @@ namespace Softeq.NetKit.Integrations.EventLog
                 throw new EventLogNotFoundException(@event.Id);
             }
 
+            eventLog.SetContent(@event); // Set content as published event has PublisherId set on publish.
             eventLog.TimesSent++;
             eventLog.StateId = (int)EventStateEnum.Published;
             EventLogContext.IntegrationEventLogs.Update(eventLog);
