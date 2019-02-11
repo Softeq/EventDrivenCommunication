@@ -83,7 +83,7 @@ NetKit.EventDrivenCommunication is a messaging component that enables Pub\Sub co
 
         return new MessageQueueConfiguration
         {
-            TimeToLive = Convert.ToInt32(appConfig["MSG_TTL"])
+            TimeToLive = Convert.ToInt32(config["MSG_TTL"])
         };
     })
 ```

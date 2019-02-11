@@ -2,7 +2,6 @@
 // http://www.softeq.com
 
 using System;
-using Newtonsoft.Json;
 using Softeq.NetKit.Components.EventBus.Events;
 
 namespace Softeq.NetKit.Integrations.EventLog
@@ -19,8 +18,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             CreationTime = @event.CreationDate;
             EventTypeName = @event.GetType().FullName;
             StateId = (int)EventStateEnum.NotPublished;
-
-            SetContent(@event);
+            Content = @event;
         }
 
         public Guid EventId { get; set; }
@@ -30,11 +28,6 @@ namespace Softeq.NetKit.Integrations.EventLog
         public int TimesSent { get; set; }
         public DateTimeOffset CreationTime { get; set; }
         public DateTimeOffset? UpdatedTime { get; set; }
-        public string Content { get; set; }
-
-        public void SetContent(IntegrationEvent @event)
-        {
-            Content = JsonConvert.SerializeObject(@event);
-        }
+        public IntegrationEvent Content { get; set; }
     }
 }

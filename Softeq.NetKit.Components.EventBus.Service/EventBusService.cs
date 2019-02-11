@@ -54,22 +54,10 @@ namespace Softeq.NetKit.Components.EventBus.Service
             return PublishEventAsync(@event, _topicConnection.TopicClient, delayInSeconds);
         }
 
-        public Task PublishToTopicAsync(Message message, int? delayInSeconds = null)
-        {
-            ValidateTopic();
-            return PublishMessageAsync(message, _topicConnection.TopicClient, delayInSeconds);
-        }
-
         public Task PublishToQueueAsync(IntegrationEvent @event, int? delayInSeconds = null)
         {
             ValidateQueue();
             return PublishEventAsync(@event, _queueConnection.QueueClient, delayInSeconds);
-        }
-
-        public Task PublishToQueueAsync(Message message, int? delayInSeconds = null)
-        {
-            ValidateQueue();
-            return PublishMessageAsync(message, _topicConnection.TopicClient, delayInSeconds);
         }
 
         public async Task SubscribeAsync<TEvent, TEventHandler>() where TEvent : IntegrationEvent
