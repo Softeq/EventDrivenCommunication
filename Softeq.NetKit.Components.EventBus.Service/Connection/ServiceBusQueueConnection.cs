@@ -28,7 +28,7 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
             _queueClient = CreateClient(connectionString, configuration.QueueName);
         }
 
-        private IQueueClient CreateClient(string connectionString, string queueName)
+        private static IQueueClient CreateClient(string connectionString, string queueName)
         {
             var client = new QueueClient(connectionString, queueName, ReceiveMode.PeekLock, RetryPolicy.Default);
             return client;

@@ -38,13 +38,13 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
             }
         }
 
-        private ITopicClient CreateTopicClient(string connectionString, string topicName)
+        private static ITopicClient CreateTopicClient(string connectionString, string topicName)
         {
             var client = new TopicClient(connectionString, topicName, RetryPolicy.Default);
             return client;
         }
 
-        private ISubscriptionClient CreateSubscriptionClient(string connectionString, string topicName, string subscriptionName)
+        private static ISubscriptionClient CreateSubscriptionClient(string connectionString, string topicName, string subscriptionName)
         {
             var client = new SubscriptionClient(connectionString, topicName, subscriptionName);
             return client;

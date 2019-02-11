@@ -2,6 +2,17 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
+    <Version>1.0.0</Version>
+    <Description></Description>
+    <Authors>Softeq Development Corp.</Authors>
+    <Company>Softeq Development Corp.</Company>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <PackageId>Softeq.NetKit.EventDrivenCommunication</PackageId>
+    <Product>Softeq.NetKit.EventDrivenCommunication</Product>
+    <PackageProjectUrl>https://github.com/Softeq/EventDrivenCommunication</PackageProjectUrl>
+    <PackageLicenseUrl>https://github.com/Softeq/EventDrivenCommunication/blob/master/LICENSE</PackageLicenseUrl>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,7 +22,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Softeq.NetKit.Components.EventBus\Softeq.NetKit.Components.EventBus.csproj" />
+    <ProjectReference Include="..\Softeq.NetKit.Components.EventBus\Softeq.NetKit.Components.EventBus.csproj" PrivateAssets="all">
+      <Private></Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Softeq.NetKit.Integrations.EventLog\Softeq.NetKit.Integrations.EventLog.csproj" PrivateAssets="all">
+      <Private></Private>
+    </ProjectReference>
   </ItemGroup>
+
+  <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))" />
+    </ItemGroup>
+  </Target>
 
 </Project>
