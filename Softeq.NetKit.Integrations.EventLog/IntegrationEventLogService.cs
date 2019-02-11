@@ -1,15 +1,15 @@
 ﻿// Developed by Softeq Development Corporation
 // http://www.softeq.com
 
+using Microsoft.EntityFrameworkCore;
+using Softeq.NetKit.Components.EventBus.Events;
+using Softeq.NetKit.Integrations.EventLog.Abstract;
+using Softeq.NetKit.Integrations.EventLog.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Softeq.NetKit.Components.EventBus.Events;
-using Softeq.NetKit.Integrations.EventLog.Abstract;
-using Softeq.NetKit.Integrations.EventLog.Exceptions;
 
 namespace Softeq.NetKit.Integrations.EventLog
 {
@@ -62,7 +62,7 @@ namespace Softeq.NetKit.Integrations.EventLog
                 throw new EventLogNotFoundException(@event.Id);
             }
 
-            eventLog.SetContent(@event); // Set content as published event has PublisherId set on publish.
+            eventLog.Content = @event; // Set content as published event has PublisherId set on publish.
             eventLog.TimesSent++;
             eventLog.StateId = (int)EventStateEnum.Published;
             EventLogContext.IntegrationEventLogs.Update(eventLog);

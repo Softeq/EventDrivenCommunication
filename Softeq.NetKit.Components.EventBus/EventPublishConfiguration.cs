@@ -10,6 +10,6 @@ namespace Softeq.NetKit.Components.EventBus
             EventPublisherId = eventPublisherId;
         }
 
-		public string EventPublisherId { get; }
+        public string EventPublisherId { get; }
     }
 }

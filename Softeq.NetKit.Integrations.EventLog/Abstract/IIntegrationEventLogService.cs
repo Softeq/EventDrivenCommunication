@@ -1,11 +1,11 @@
 ﻿// Developed by Softeq Development Corporation
 // http://www.softeq.com
 
+using Softeq.NetKit.Components.EventBus.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using Softeq.NetKit.Components.EventBus.Events;
 
 namespace Softeq.NetKit.Integrations.EventLog.Abstract
 {
