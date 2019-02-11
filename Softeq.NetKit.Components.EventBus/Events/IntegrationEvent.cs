@@ -13,8 +13,8 @@ namespace Softeq.NetKit.Components.EventBus.Events
             CreationDate = DateTimeOffset.UtcNow;
         }
 
-        public Guid Id { get; private set; }
-        public DateTimeOffset CreationDate { get; private set; }
+        public Guid Id { get; private set; } //Do not remove 'private set' so compiler won't drop backing field setter
+        public DateTimeOffset CreationDate { get; private set; } //Do not remove 'private set' so compiler won't drop backing field setter
         public string PublisherId { get; set; }
     }
 }
