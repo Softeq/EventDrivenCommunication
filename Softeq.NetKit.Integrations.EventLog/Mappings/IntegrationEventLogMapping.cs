@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using Softeq.NetKit.Components.EventBus.Events;
 using Softeq.NetKit.Integrations.EventLog.Abstract;
 using Softeq.NetKit.Integrations.EventLog.Mappings.Abstract;
+using Softeq.NetKit.Integrations.EventLog.Utility;
 
 namespace Softeq.NetKit.Integrations.EventLog.Mappings
 {
@@ -19,7 +20,8 @@ namespace Softeq.NetKit.Integrations.EventLog.Mappings
 
             var serializerSettings = new JsonSerializerSettings
             {
-                TypeNameHandling = TypeNameHandling.All
+                TypeNameHandling = TypeNameHandling.All,
+                ContractResolver = new PrivateFieldContractResolver()
             };
 
             builder.Property(eventLog => eventLog.Content)

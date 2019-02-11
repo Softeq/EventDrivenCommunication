@@ -13,8 +13,8 @@ namespace Softeq.NetKit.Components.EventBus.Events
             CreationDate = DateTimeOffset.UtcNow;
         }
 
-        public Guid Id { get; }
-        public DateTimeOffset CreationDate { get; }
+        public Guid Id { get; private set; }
+        public DateTimeOffset CreationDate { get; private set; }
         public string PublisherId { get; set; }
     }
 }
