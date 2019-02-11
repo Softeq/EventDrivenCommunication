@@ -27,6 +27,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
         private readonly ServiceBusTopicConnection _topicConnection;
         private readonly ServiceBusQueueConnection _queueConnection;
         private readonly ILogger _logger;
+        private readonly EventPublishConfiguration _eventPublishConfiguration;
 
         private bool IsSubscriptionAvailable => _topicConnection?.SubscriptionClient != null;
         private bool IsQueueAvailable => _queueConnection != null;
@@ -35,34 +36,28 @@ namespace Softeq.NetKit.Components.EventBus.Service
             IEventBusSubscriptionsManager subscriptionsManager,
             IServiceProvider serviceProvider,
             ILoggerFactory loggerFactory,
-            MessageQueueConfiguration messageQueueConfiguration)
+            MessageQueueConfiguration messageQueueConfiguration,
+            EventPublishConfiguration eventPublishConfiguration)
         {
             _topicConnection = serviceBusPersisterConnection.TopicConnection;
             _queueConnection = serviceBusPersisterConnection.QueueConnection;
             _subscriptionsManager = subscriptionsManager;
             _serviceProvider = serviceProvider;
             _messageQueueConfiguration = messageQueueConfiguration;
+            _eventPublishConfiguration = eventPublishConfiguration;
             _logger = loggerFactory.CreateLogger(GetType());
         }
 
         public Task PublishToTopicAsync(IntegrationEvent @event, int? delayInSeconds = null)
         {
             ValidateTopic();
-            return PublishMessageAsync(@event, _topicConnection.TopicClient, delayInSeconds);
+            return PublishEventAsync(@event, _topicConnection.TopicClient, delayInSeconds);
         }
 
         public Task PublishToQueueAsync(IntegrationEvent @event, int? delayInSeconds = null)
         {
             ValidateQueue();
-            return PublishMessageAsync(@event, _queueConnection.QueueClient, delayInSeconds);
-        }
-
-        private Task PublishMessageAsync(IntegrationEvent @event, ISenderClient client, int? delayInSeconds = null)
-        {
-            var message = GetPublishedMessage(@event);
-            return delayInSeconds.HasValue
-                ? client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value))
-                : client.SendAsync(message);
+            return PublishEventAsync(@event, _queueConnection.QueueClient, delayInSeconds);
         }
 
         public async Task SubscribeAsync<TEvent, TEventHandler>() where TEvent : IntegrationEvent
@@ -130,7 +125,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
             _topicConnection.SubscriptionClient.RegisterMessageHandler(
                 async (message, token) => await HandleReceivedMessage(_topicConnection.SubscriptionClient,
                     _topicConnection.TopicClient, message, token),
-                new MessageHandlerOptions(ExceptionReceivedHandler) {MaxConcurrentCalls = 10, AutoComplete = false});
+                new MessageHandlerOptions(ExceptionReceivedHandler) { MaxConcurrentCalls = 10, AutoComplete = false });
         }
 
         public void RegisterQueueListener()
@@ -140,7 +135,21 @@ namespace Softeq.NetKit.Components.EventBus.Service
             _queueConnection.QueueClient.RegisterMessageHandler(
                 async (message, token) => await HandleReceivedMessage(_queueConnection.QueueClient,
                     _queueConnection.QueueClient, message, token),
-                new MessageHandlerOptions(ExceptionReceivedHandler) {MaxConcurrentCalls = 1, AutoComplete = false});
+                new MessageHandlerOptions(ExceptionReceivedHandler) { MaxConcurrentCalls = 1, AutoComplete = false });
+        }
+
+        private Task PublishMessageAsync(Message message, ISenderClient client, int? delayInSeconds = null)
+        {
+            return delayInSeconds.HasValue
+                ? client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value))
+                : client.SendAsync(message);
+        }
+
+        private Task PublishEventAsync(IntegrationEvent @event, ISenderClient client, int? delayInSeconds = null)
+        {
+            var message = GetMessageForPublish(@event);
+
+            return PublishMessageAsync(message, client, delayInSeconds);
         }
 
         private async Task<bool> CheckIfRuleExists(string ruleName)
@@ -168,7 +177,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 {
                     await _topicConnection.SubscriptionClient.AddRuleAsync(new RuleDescription
                     {
-                        Filter = new CorrelationFilter {Label = eventName},
+                        Filter = new CorrelationFilter { Label = eventName },
                         Name = eventName
                     });
                 }
@@ -206,11 +215,13 @@ namespace Softeq.NetKit.Components.EventBus.Service
             var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
             if (eventType != null && eventType != typeof(CompletedEvent))
             {
-                dynamic eventData = JObject.Parse(messageData);
-                if (Guid.TryParse(eventData["Id"] as string, out var eventId))
+                var eventData = JObject.Parse(messageData);
+                if (Guid.TryParse((string)eventData["Id"], out var eventId))
                 {
-                    var completedEvent = new CompletedEvent(eventId);
-                    await PublishMessageAsync(completedEvent, senderClient);
+                    var publisherId = (string)eventData["PublisherId"];
+
+                    var completedEvent = new CompletedEvent(eventId, publisherId);
+                    await PublishEventAsync(completedEvent, senderClient);
                 }
             }
         }
@@ -239,7 +250,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
                         var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
                         var integrationEvent = JsonConvert.DeserializeObject(message, eventType);
                         var concreteType = typeof(IEventHandler<>).MakeGenericType(eventType);
-                        await (Task) concreteType.GetMethod("Handle").Invoke(handler, new[] {integrationEvent});
+                        await (Task)concreteType.GetMethod("Handle").Invoke(handler, new[] { integrationEvent });
                     }
                 }
             }
@@ -257,8 +268,9 @@ namespace Softeq.NetKit.Components.EventBus.Service
             return Task.CompletedTask;
         }
 
-        private Message GetPublishedMessage(IntegrationEvent @event)
+        private Message GetMessageForPublish(IntegrationEvent @event)
         {
+            @event.PublisherId = _eventPublishConfiguration.EventPublisherId;
             var eventName = @event.GetType().Name;
             var jsonMessage = JsonConvert.SerializeObject(@event);
             var body = Encoding.UTF8.GetBytes(jsonMessage);
@@ -268,7 +280,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 MessageId = Guid.NewGuid().ToString(),
                 Body = body,
                 Label = eventName,
-                TimeToLive = TimeSpan.FromHours(_messageQueueConfiguration.TimeToLive),
+                TimeToLive = TimeSpan.FromMinutes(_messageQueueConfiguration.TimeToLiveInMinutes)
             };
 
             return message;

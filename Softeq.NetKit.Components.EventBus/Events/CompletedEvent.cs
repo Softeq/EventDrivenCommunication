@@ -7,11 +7,14 @@ namespace Softeq.NetKit.Components.EventBus.Events
 {
     public class CompletedEvent : IntegrationEvent
     {
-	    public CompletedEvent(Guid completedEventId)
-	    {
-		    CompletedEventId = completedEventId;
-	    }
+        public CompletedEvent(Guid completedEventId, string completedEventPublisherId)
+        {
+            CompletedEventId = completedEventId;
+            CompletedEventPublisherId = completedEventPublisherId;
+        }
 
-	    public Guid CompletedEventId { get; }
-	}
+        public Guid CompletedEventId { get; }
+
+        public string CompletedEventPublisherId { get; }
+    }
 }

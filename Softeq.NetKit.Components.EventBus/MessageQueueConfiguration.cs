@@ -5,6 +5,6 @@ namespace Softeq.NetKit.Components.EventBus
 {
     public class MessageQueueConfiguration
     {
-		public int TimeToLive { get; set; }
+		public int TimeToLiveInMinutes { get; set; }
     }
 }
