@@ -8,7 +8,7 @@ NetKit.EventDrivenCommunication is a messaging component that enables Pub\Sub co
 2. ```Softeq.NetKit.Components.EventBus.Service``` - Pub\Sub implementation that uses Azure Service Bus as a communication mechanins.
 3. ```Softeq.NetKit.Integrations.EventLog``` - SQL DB Store for event state. 
 
-# Geting Started
+# Getting Started
 
 ## Install 
 1. Check-out master branch from repository
@@ -47,7 +47,7 @@ NetKit.EventDrivenCommunication is a messaging component that enables Pub\Sub co
 
 1. Set up and register ServiceBus configuration ```ServiceBusPersisterConnectionConfiguration``` in your DI container
 ```csharp
-    container.Register(x =>
+    builder.Register(x =>
     {
         var context = x.Resolve<IComponentContext>();
         var config = context.Resolve<IConfiguration>();
@@ -85,7 +85,7 @@ NetKit.EventDrivenCommunication is a messaging component that enables Pub\Sub co
         {
             TimeToLive = Convert.ToInt32(config["MSG_TTL"])
         };
-    })
+    });
 ```
 
 4. Register ```IEventBusSubscriptionsManager``` implementation
@@ -104,7 +104,12 @@ NetKit.EventDrivenCommunication is a messaging component that enables Pub\Sub co
 
 ``` 
 
-6. (Optional) Register ```IIntegrationEventLogService``` implementation
+6. Register ```IEventHandler``` implementations
+```csharp
+    builder.RegisterType<UserCreatedEventHandler>();
+``` 
+
+7. (Optional) Register ```IIntegrationEventLogService``` implementation
 ```csharp
     builder.RegisterType<IntegrationEventLogService>()
                 .As<IIntegrationEventLogService>();
