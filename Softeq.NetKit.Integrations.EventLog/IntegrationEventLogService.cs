@@ -37,7 +37,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             return await EventLogContext.IntegrationEventLogs.Where(where).ToListAsync();
         }
 
-        public async Task SaveAsync(IntegrationEvent @event)
+        public Task SaveAsync(IntegrationEvent @event)
         {
             if (@event == null)
             {
@@ -46,7 +46,7 @@ namespace Softeq.NetKit.Integrations.EventLog
 
             var eventLog = new IntegrationEventLog(@event);
             EventLogContext.IntegrationEventLogs.Add(eventLog);
-            await EventLogContext.SaveChangesAsync();
+            return EventLogContext.SaveChangesAsync();
         }
 
         public async Task MarkAsPublishedAsync(IntegrationEvent @event)

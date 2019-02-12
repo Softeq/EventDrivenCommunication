@@ -1,3 +1,6 @@
+![NuGet](https://img.shields.io/nuget/v/Softeq.NetKit.EventDrivenCommunication.svg)
+![Azure DevOps builds](https://img.shields.io/azure-devops/build/SofteqDevelopment/NetKit/16.svg)
+
 # NetKit.EventDrivenCommunication
 
 NetKit.EventDrivenCommunication is a messaging component that enables Pub\Sub communication between system components or services.
