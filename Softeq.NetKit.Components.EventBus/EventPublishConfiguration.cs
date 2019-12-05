@@ -8,8 +8,10 @@ namespace Softeq.NetKit.Components.EventBus
         public EventPublishConfiguration(string eventPublisherId)
         {
             EventPublisherId = eventPublisherId;
+            SendCompletionEvent = true;
         }
 
         public string EventPublisherId { get; }
+        public bool SendCompletionEvent { get; set; }
     }
 }

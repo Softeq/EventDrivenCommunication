@@ -8,7 +8,8 @@ namespace Softeq.NetKit.Components.EventBus.Abstract
 {
     public interface IEventBusSubscriber
     {
-        void RegisterQueueListener();
+        void RegisterQueueListener(QueueListenerConfiguration configuration = null);
+
         Task RegisterSubscriptionListenerAsync();
 
         Task SubscribeAsync<TEvent, TEventHandler>()

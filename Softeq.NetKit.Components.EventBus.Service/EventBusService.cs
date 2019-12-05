@@ -128,17 +128,38 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 new MessageHandlerOptions(ExceptionReceivedHandler) { MaxConcurrentCalls = 10, AutoComplete = false });
         }
 
-        public void RegisterQueueListener()
+        public void RegisterQueueListener(QueueListenerConfiguration configuration = null)
         {
             ValidateQueue();
 
-            _queueConnection.QueueClient.RegisterMessageHandler(
-                async (message, token) => await HandleReceivedMessage(_queueConnection.QueueClient,
-                    _queueConnection.QueueClient, message, token),
-                new MessageHandlerOptions(ExceptionReceivedHandler) { MaxConcurrentCalls = 1, AutoComplete = false });
+            var useSessions = configuration?.UseSessions ?? false;
+            if (useSessions)
+            {
+                var handlerOptions = new SessionHandlerOptions(ExceptionReceivedHandler)
+                {
+                    AutoComplete = false,
+                    MaxConcurrentSessions = configuration?.MaxConcurrent ?? 10
+
+                };
+                _queueConnection.QueueClient.RegisterSessionHandler(
+                    async (session, message, token) => await HandleReceivedMessage(_queueConnection.QueueClient,
+                    _queueConnection.QueueClient, message, token), handlerOptions);
+            }
+            else
+            {
+                var handlerOptions = new MessageHandlerOptions(ExceptionReceivedHandler)
+                {
+                    MaxConcurrentCalls = configuration?.MaxConcurrent ?? 1,
+                    AutoComplete = false
+                };
+
+                _queueConnection.QueueClient.RegisterMessageHandler(
+                    async (message, token) => await HandleReceivedMessage(_queueConnection.QueueClient,
+                        _queueConnection.QueueClient, message, token), handlerOptions);
+            }
         }
 
-        private Task PublishMessageAsync(Message message, ISenderClient client, int? delayInSeconds = null)
+        private static Task PublishMessageAsync(Message message, ISenderClient client, int? delayInSeconds = null)
         {
             return delayInSeconds.HasValue
                 ? client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value))
@@ -212,16 +233,19 @@ namespace Softeq.NetKit.Components.EventBus.Service
             // Complete the message so that it is not received again.
             await receiverClient.CompleteAsync(message.SystemProperties.LockToken);
 
-            var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
-            if (eventType != null && eventType != typeof(CompletedEvent))
+            if (_eventPublishConfiguration.SendCompletionEvent)
             {
-                var eventData = JObject.Parse(messageData);
-                if (Guid.TryParse((string)eventData["Id"], out var eventId))
+                var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
+                if (eventType != null && eventType != typeof(CompletedEvent))
                 {
-                    var publisherId = (string)eventData["PublisherId"];
+                    var eventData = JObject.Parse(messageData);
+                    if (Guid.TryParse((string)eventData["Id"], out var eventId))
+                    {
+                        var publisherId = (string)eventData["PublisherId"];
 
-                    var completedEvent = new CompletedEvent(eventId, publisherId);
-                    await PublishEventAsync(completedEvent, senderClient);
+                        var completedEvent = new CompletedEvent(eventId, publisherId);
+                        await PublishEventAsync(completedEvent, senderClient);
+                    }
                 }
             }
         }
@@ -280,8 +304,14 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 MessageId = Guid.NewGuid().ToString(),
                 Body = body,
                 Label = eventName,
-                TimeToLive = TimeSpan.FromMinutes(_messageQueueConfiguration.TimeToLiveInMinutes)
+                CorrelationId = @event.CorrelationId,
+                SessionId = @event.SessionId
             };
+
+            if (_messageQueueConfiguration.TimeToLiveInMinutes.HasValue)
+            {
+                message.TimeToLive = TimeSpan.FromMinutes(_messageQueueConfiguration.TimeToLiveInMinutes.Value);
+            }
 
             return message;
         }
