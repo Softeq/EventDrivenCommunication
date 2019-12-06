@@ -2,39 +2,61 @@
 // http://www.softeq.com
 
 using Microsoft.Azure.ServiceBus;
+using Microsoft.Azure.ServiceBus.Primitives;
 using System;
 
 namespace Softeq.NetKit.Components.EventBus.Service.Connection
 {
     public class ServiceBusTopicConnection
     {
-        private readonly string _connectionString;
-        private readonly ServiceBusPersisterTopicConnectionConfiguration _configuration;
+        private readonly Func<ITopicClient> _topicClientFactory;
+        private readonly Func<ISubscriptionClient> _subscriptionClientFactory;
+
         private ITopicClient _topicClient;
         private ISubscriptionClient _subscriptionClient;
 
-        public ITopicClient TopicClient => _topicClient.IsClosedOrClosing
-            ? _topicClient = CreateTopicClient(_connectionString, _configuration.TopicName)
+        public ITopicClient TopicClient => _topicClient?.IsClosedOrClosing ?? true
+            ? _topicClient = _topicClientFactory()
             : _topicClient;
 
-        public ISubscriptionClient SubscriptionClient => _subscriptionClient != null &&_subscriptionClient.IsClosedOrClosing
-            ? _subscriptionClient = CreateSubscriptionClient(_connectionString, _configuration.TopicName, _configuration.SubscriptionName)
+        public ISubscriptionClient SubscriptionClient => _subscriptionClientFactory != null && (_subscriptionClient?.IsClosedOrClosing ?? true)
+            ? _subscriptionClient = _subscriptionClientFactory()
             : _subscriptionClient;
 
         public ServiceBusTopicConnection(string connectionString, ServiceBusPersisterTopicConnectionConfiguration configuration)
         {
-            if (string.IsNullOrWhiteSpace(configuration.TopicName))
+            if (string.IsNullOrWhiteSpace(configuration?.TopicName))
             {
                 throw new ArgumentNullException(nameof(configuration.TopicName));
             }
 
-            _connectionString = connectionString;
-            _configuration = configuration;
-            _topicClient = CreateTopicClient(connectionString, configuration.TopicName);
+            _topicClientFactory = () => CreateTopicClient(connectionString, configuration.TopicName);
 
             if (!string.IsNullOrWhiteSpace(configuration.SubscriptionName))
             {
-                _subscriptionClient = CreateSubscriptionClient(connectionString, configuration.TopicName, configuration.SubscriptionName);
+                _subscriptionClientFactory = () => CreateSubscriptionClient(connectionString, configuration.TopicName, configuration.SubscriptionName);
+            }
+        }
+
+        public ServiceBusTopicConnection(string namespaceName, TokenProvider tokenProvider, ServiceBusPersisterTopicConnectionConfiguration configuration)
+        {
+            if (string.IsNullOrWhiteSpace(configuration?.TopicName))
+            {
+                throw new ArgumentNullException(nameof(configuration.TopicName));
+            }
+
+            if (string.IsNullOrWhiteSpace(namespaceName))
+            {
+                throw new ArgumentNullException(nameof(namespaceName));
+            }
+
+            var sbNamespace = $"sb://{namespaceName}.servicebus.windows.net/";
+            var provider = tokenProvider ?? TokenProvider.CreateManagedIdentityTokenProvider();
+            _topicClientFactory = () => CreateTopicClient(sbNamespace, configuration.TopicName, provider);
+
+            if (!string.IsNullOrWhiteSpace(configuration.SubscriptionName))
+            {
+                _subscriptionClientFactory = () => CreateSubscriptionClient(sbNamespace, configuration.TopicName, configuration.SubscriptionName, provider);
             }
         }
 
@@ -44,9 +66,21 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
             return client;
         }
 
+        private static ITopicClient CreateTopicClient(string namespaceName, string topicName, TokenProvider tokenProvider)
+        {
+            var client = new TopicClient(namespaceName, topicName, tokenProvider);
+            return client;
+        }
+
         private static ISubscriptionClient CreateSubscriptionClient(string connectionString, string topicName, string subscriptionName)
         {
             var client = new SubscriptionClient(connectionString, topicName, subscriptionName);
+            return client;
+        }
+
+        private static ISubscriptionClient CreateSubscriptionClient(string namespaceName, string topicName, string subscriptionName, TokenProvider tokenProvider)
+        {
+            var client = new SubscriptionClient(namespaceName, topicName, subscriptionName, tokenProvider);
             return client;
         }
     }

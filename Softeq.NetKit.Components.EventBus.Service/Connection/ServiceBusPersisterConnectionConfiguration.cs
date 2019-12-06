@@ -3,9 +3,8 @@
 
 namespace Softeq.NetKit.Components.EventBus.Service.Connection
 {
-    public class ServiceBusPersisterConnectionConfiguration
+    public abstract class ServiceBusPersisterConnectionConfiguration
     {
-        public string ConnectionString { get; set; }
         public ServiceBusPersisterTopicConnectionConfiguration TopicConfiguration { get; set; }
         public ServiceBusPersisterQueueConnectionConfiguration QueueConfiguration { get; set; }
     }

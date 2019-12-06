@@ -41,7 +41,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
         private async Task<List<DeadLetterQueueMessage>> GetMessages(string entityPath)
         {
             var dlqMessages = new List<DeadLetterQueueMessage>();
-            var client = new MessageReceiver(_serviceBusPersisterConnection.ServiceBusConnectionString, entityPath);
+            var client = _serviceBusPersisterConnection.CreateMessageReceiver(entityPath);
 
             var queueStillHasMessages = true;
             while (queueStillHasMessages)
