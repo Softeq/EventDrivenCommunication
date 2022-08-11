@@ -39,11 +39,6 @@ namespace Softeq.NetKit.Integrations.EventLog
 
         public Task SaveAsync(IntegrationEvent @event)
         {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
-
             var eventLog = new IntegrationEventLog(@event);
             EventLogContext.IntegrationEventLogs.Add(eventLog);
             return EventLogContext.SaveChangesAsync();

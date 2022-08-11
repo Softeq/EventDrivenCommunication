@@ -17,12 +17,13 @@ namespace Softeq.NetKit.Integrations.EventLog
         public DbSet<IntegrationEventLog> IntegrationEventLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
-		{
-		    //put db configuration here
-		    base.OnModelCreating(builder);
+        {
+            base.OnModelCreating(builder);
 
-		    builder.AddEntityConfigurationsFromAssembly<IEntityMappingConfiguration>(GetType().Assembly);
-		    builder.AddEntityConfigurationsFromAssembly<IEntitySeedConfiguration>(GetType().Assembly);
-	    }
+            builder.HasDefaultSchema("dbo");
+
+            builder.AddEntityConfigurationsFromAssembly<IEntityMappingConfiguration>(GetType().Assembly);
+            builder.AddEntityConfigurationsFromAssembly<IEntitySeedConfiguration>(GetType().Assembly);
+        }
     }
 }

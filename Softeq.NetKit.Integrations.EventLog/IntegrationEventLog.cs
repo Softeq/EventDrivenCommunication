@@ -14,10 +14,16 @@ namespace Softeq.NetKit.Integrations.EventLog
 
         public IntegrationEventLog(IntegrationEvent @event)
         {
+            if (@event == null)
+            {
+                throw new ArgumentNullException(nameof(@event));
+            }
+
             EventId = @event.Id;
             CreationTime = @event.CreationDate;
             EventTypeName = @event.GetType().FullName;
             StateId = (int)EventStateEnum.NotPublished;
+            SessionId = @event.SessionId;
             Content = @event;
         }
 
@@ -28,6 +34,7 @@ namespace Softeq.NetKit.Integrations.EventLog
         public int TimesSent { get; set; }
         public DateTimeOffset CreationTime { get; set; }
         public DateTimeOffset? UpdatedTime { get; set; }
+        public string SessionId { get; set; }
         public IntegrationEvent Content { get; set; }
     }
 }

@@ -32,6 +32,7 @@ namespace Softeq.NetKit.Integrations.EventLog.Mappings
             builder.Property(eventLog => eventLog.StateId).IsRequired();
             builder.Property(eventLog => eventLog.EventTypeName).IsRequired();
             builder.Property(eventLog => eventLog.TimesSent).IsRequired();
+            builder.Property(eventLog => eventLog.SessionId).IsRequired(false);
         }
     }
 }
