@@ -123,8 +123,11 @@ namespace Softeq.NetKit.Components.EventBus.Service
             await RemoveDefaultRuleIfExists();
 
             _topicConnection.SubscriptionClient.RegisterMessageHandler(
-                async (message, token) => await HandleReceivedMessage(_topicConnection.SubscriptionClient,
-                    _topicConnection.TopicClient, message, token),
+                async (message, token) => await HandleReceivedMessage(
+                    _topicConnection.SubscriptionClient,
+                    _topicConnection.TopicClient, 
+                    message, 
+                    token),
                 new MessageHandlerOptions(ExceptionReceivedHandler) { MaxConcurrentCalls = 10, AutoComplete = false });
         }
 
@@ -138,12 +141,16 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 var handlerOptions = new SessionHandlerOptions(ExceptionReceivedHandler)
                 {
                     AutoComplete = false,
-                    MaxConcurrentSessions = configuration?.MaxConcurrent ?? 10
-
+                    MaxConcurrentSessions = configuration.MaxConcurrent
                 };
                 _queueConnection.QueueClient.RegisterSessionHandler(
-                    async (session, message, token) => await HandleReceivedMessage(_queueConnection.QueueClient,
-                    _queueConnection.QueueClient, message, token), handlerOptions);
+                    async (session, message, token) => 
+                        await HandleReceivedMessage(
+                            session,
+                            _topicConnection.TopicClient, 
+                            message, 
+                            token), 
+                    handlerOptions);
             }
             else
             {
@@ -154,8 +161,13 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 };
 
                 _queueConnection.QueueClient.RegisterMessageHandler(
-                    async (message, token) => await HandleReceivedMessage(_queueConnection.QueueClient,
-                        _queueConnection.QueueClient, message, token), handlerOptions);
+                    async (message, token) => 
+                        await HandleReceivedMessage(
+                            _queueConnection.QueueClient,
+                            _queueConnection.QueueClient, 
+                            message, 
+                            token), 
+                    handlerOptions);
             }
         }
 
@@ -223,8 +235,11 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
         }
 
-        private async Task HandleReceivedMessage(IReceiverClient receiverClient, ISenderClient senderClient,
-            Message message, CancellationToken token)
+        private async Task HandleReceivedMessage(
+            IReceiverClient receiverClient, 
+            ISenderClient senderClient,
+            Message message, 
+            CancellationToken token)
         {
             var eventName = message.Label;
             var messageData = Encoding.UTF8.GetString(message.Body);
@@ -274,7 +289,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
                         var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
                         var integrationEvent = JsonConvert.DeserializeObject(message, eventType);
                         var concreteType = typeof(IEventHandler<>).MakeGenericType(eventType);
-                        await (Task)concreteType.GetMethod("Handle").Invoke(handler, new[] { integrationEvent });
+                        await (Task)concreteType.GetMethod(nameof(IEventHandler<IntegrationEvent>.Handle)).Invoke(handler, new[] { integrationEvent });
                     }
                 }
             }
