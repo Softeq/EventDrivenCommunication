@@ -4,10 +4,11 @@
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Primitives;
 using System;
+using System.Threading.Tasks;
 
 namespace Softeq.NetKit.Components.EventBus.Service.Connection
 {
-    public class ServiceBusTopicConnection
+    public class ServiceBusTopicConnection : IAsyncDisposable
     {
         private readonly Func<ITopicClient> _topicClientFactory;
         private readonly Func<ISubscriptionClient> _subscriptionClientFactory;
@@ -57,6 +58,19 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
             if (!string.IsNullOrWhiteSpace(configuration.SubscriptionName))
             {
                 _subscriptionClientFactory = () => CreateSubscriptionClient(sbNamespace, configuration.TopicName, configuration.SubscriptionName, provider);
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_topicClient != null && !_topicClient.IsClosedOrClosing)
+            {
+                await _topicClient.CloseAsync();
+            }
+
+            if (_subscriptionClient != null && !_subscriptionClient.IsClosedOrClosing)
+            {
+                await _subscriptionClient.CloseAsync();
             }
         }
 

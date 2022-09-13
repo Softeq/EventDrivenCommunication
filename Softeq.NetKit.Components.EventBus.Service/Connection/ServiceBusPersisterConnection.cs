@@ -2,6 +2,7 @@
 // http://www.softeq.com
 
 using System;
+using System.Threading.Tasks;
 using Microsoft.Azure.ServiceBus.Core;
 
 namespace Softeq.NetKit.Components.EventBus.Service.Connection
@@ -39,6 +40,19 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
                     return new MessageReceiver(msiConfiguration.NamespaceName, entity, msiConfiguration.TokenProvider);
                 default:
                     throw new NotSupportedException($"Configuration of type {ConnectionConfiguration.GetType().Name} not supported");
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (QueueConnection != null)
+            {
+                await QueueConnection.DisposeAsync();
+            }
+
+            if (TopicConnection != null)
+            {
+                await TopicConnection.DisposeAsync();
             }
         }
 
