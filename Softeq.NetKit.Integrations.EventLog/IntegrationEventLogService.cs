@@ -16,6 +16,7 @@ namespace Softeq.NetKit.Integrations.EventLog
     public class IntegrationEventLogService : IIntegrationEventLogService
     {
         protected IntegrationEventLogContext EventLogContext;
+
         public IntegrationEventLogService(IntegrationEventLogContext eventLogContext)
         {
             EventLogContext = eventLogContext;
@@ -37,7 +38,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             return await EventLogContext.IntegrationEventLogs.Where(where).ToListAsync();
         }
 
-        public Task SaveAsync(IntegrationEvent @event)
+        public Task CreateAsync(IntegrationEvent @event)
         {
             var eventLog = new IntegrationEventLog(@event);
             EventLogContext.IntegrationEventLogs.Add(eventLog);
@@ -57,35 +58,53 @@ namespace Softeq.NetKit.Integrations.EventLog
                 throw new EventLogNotFoundException(@event.Id);
             }
 
-            eventLog.Content = @event; // Set content as published event has PublisherId set on publish.
-            eventLog.TimesSent++;
-            eventLog.StateId = (int)EventStateEnum.Published;
-            EventLogContext.IntegrationEventLogs.Update(eventLog);
-            await EventLogContext.SaveChangesAsync();
+            // Published event has PublisherId so need to update it also
+            eventLog.Content.PublisherId = @event.PublisherId;
+            eventLog.ChangeEventState(EventState.Published);
+
+            await UpdateAsync(eventLog);
         }
 
-        public async Task CompleteAsync(Guid eventId)
-        {
-            var eventLog = await EventLogContext.IntegrationEventLogs.SingleOrDefaultAsync(x => x.EventId == eventId);
-            if (eventLog == null)
-            {
-                throw new EventLogNotFoundException(eventId);
-            }
-
-            eventLog.StateId = (int)EventStateEnum.Completed;
-            EventLogContext.IntegrationEventLogs.Update(eventLog);
-            await EventLogContext.SaveChangesAsync();
-        }
-
-        public async Task UpdateAsync(IntegrationEventLog @event)
+        public async Task MarkAsPublishedFailedAsync(IntegrationEvent @event)
         {
             if (@event == null)
             {
                 throw new ArgumentNullException(nameof(@event));
             }
 
-            @event.UpdatedTime = DateTimeOffset.UtcNow;
-            EventLogContext.Update(@event);
+            var eventLog = await EventLogContext.IntegrationEventLogs.SingleOrDefaultAsync(x => x.EventId == @event.Id);
+            if (eventLog == null)
+            {
+                throw new EventLogNotFoundException(@event.Id);
+            }
+
+            eventLog.ChangeEventState(EventState.PublishedFailed);
+
+            await UpdateAsync(eventLog);
+        }
+
+        public async Task MarkAsCompletedAsync(Guid eventId)
+        {
+            var eventLog = await EventLogContext.IntegrationEventLogs.SingleOrDefaultAsync(x => x.EventId == eventId);
+            if (eventLog == null)
+            {
+                throw new EventLogNotFoundException(eventId);
+            }
+            
+            eventLog.ChangeEventState(EventState.Completed);
+
+            await UpdateAsync(eventLog);
+        }
+
+        private async Task UpdateAsync(IntegrationEventLog @event)
+        {
+            if (@event == null)
+            {
+                throw new ArgumentNullException(nameof(@event));
+            }
+
+            @event.Updated = DateTimeOffset.UtcNow;
+            EventLogContext.IntegrationEventLogs.Update(@event);
             await EventLogContext.SaveChangesAsync();
         }
     }

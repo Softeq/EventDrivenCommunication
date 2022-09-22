@@ -13,9 +13,9 @@ namespace Softeq.NetKit.Integrations.EventLog.Abstract
     {
         Task<IntegrationEventLog> GetAsync(Guid eventId);
         Task<List<IntegrationEventLog>> GetAsync(Expression<Func<IntegrationEventLog, bool>> where);
-        Task SaveAsync(IntegrationEvent @event);
+        Task CreateAsync(IntegrationEvent @event);
         Task MarkAsPublishedAsync(IntegrationEvent @event);
-        Task CompleteAsync(Guid eventId);
-        Task UpdateAsync(IntegrationEventLog @event);
+        Task MarkAsPublishedFailedAsync(IntegrationEvent @event);
+        Task MarkAsCompletedAsync(Guid eventId);
     }
 }

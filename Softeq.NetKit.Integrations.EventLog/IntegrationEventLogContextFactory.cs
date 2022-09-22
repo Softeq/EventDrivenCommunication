@@ -9,8 +9,11 @@ namespace Softeq.NetKit.Integrations.EventLog
     /// <summary>
     /// This factory is needed to create db migrations in class library via Package Manager Console
     /// https://docs.microsoft.com/en-us/ef/core/cli/dbcontext-creation?tabs=dotnet-core-cli#from-a-design-time-factory
-    /// To use this factory, edit proj file: change the project TargetFramework to, for example, <TargetFramework>netcoreapp3.1</TargetFramework>
-    /// Then create a migration via Package Manager Console: add-migration <migration_mane> -context IntegrationEventLogContext
+    /// To use this factory
+    /// 1. Set current project as startup project
+    /// 2. Edit project file: change the project TargetFramework to, for example, <TargetFramework>netcoreapp3.1</TargetFramework>
+    /// 3. Open Package Manager Console. Set current project as the default project
+    /// 4. Create migration by running command: add-migration migration_name -context IntegrationEventLogContext
     /// </summary>
     public class IntegrationEventLogContextFactory : IDesignTimeDbContextFactory<IntegrationEventLogContext>
     {

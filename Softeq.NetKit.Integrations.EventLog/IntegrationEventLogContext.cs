@@ -3,8 +3,7 @@
 
 using Microsoft.EntityFrameworkCore;
 using Softeq.NetKit.Integrations.EventLog.Extensions;
-using Softeq.NetKit.Integrations.EventLog.Mappings.Abstract;
-using Softeq.NetKit.Integrations.EventLog.Seeds.Abstract;
+using Softeq.NetKit.Integrations.EventLog.Mappings;
 
 namespace Softeq.NetKit.Integrations.EventLog
 {
@@ -23,7 +22,6 @@ namespace Softeq.NetKit.Integrations.EventLog
             builder.HasDefaultSchema("dbo");
 
             builder.AddEntityConfigurationsFromAssembly<IEntityMappingConfiguration>(GetType().Assembly);
-            builder.AddEntityConfigurationsFromAssembly<IEntitySeedConfiguration>(GetType().Assembly);
         }
     }
 }

@@ -32,7 +32,8 @@ namespace Softeq.NetKit.Components.EventBus.Service
         private bool IsSubscriptionAvailable => _topicConnection?.SubscriptionClient != null;
         private bool IsQueueAvailable => _queueConnection != null;
 
-        public EventBusService(IServiceBusPersisterConnection serviceBusPersisterConnection,
+        public EventBusService(
+            IServiceBusPersisterConnection serviceBusPersisterConnection,
             IEventBusSubscriptionsManager subscriptionsManager,
             IServiceProvider serviceProvider,
             ILoggerFactory loggerFactory,
@@ -100,22 +101,6 @@ namespace Softeq.NetKit.Components.EventBus.Service
             _subscriptionsManager.RemoveDynamicSubscription<TEventHandler>(eventName);
         }
 
-        private async Task RemoveDefaultRuleIfExists()
-        {
-            try
-            {
-                if (await CheckIfRuleExists(RuleDescription.DefaultRuleName))
-                {
-                    await _topicConnection.SubscriptionClient.RemoveRuleAsync(RuleDescription.DefaultRuleName);
-                }
-            }
-            catch (MessagingEntityNotFoundException ex)
-            {
-                throw new Exceptions.ServiceBusException(
-                    $"Removing default rule {RuleDescription.DefaultRuleName} (if exists) failed.", ex.InnerException);
-            }
-        }
-
         public async Task RegisterSubscriptionListenerAsync()
         {
             ValidateSubscription();
@@ -129,6 +114,22 @@ namespace Softeq.NetKit.Components.EventBus.Service
                     message, 
                     token),
                 new MessageHandlerOptions(ExceptionReceivedHandler) { MaxConcurrentCalls = 10, AutoComplete = false });
+
+            async Task RemoveDefaultRuleIfExists()
+            {
+                try
+                {
+                    if (await CheckIfRuleExists(RuleDescription.DefaultRuleName))
+                    {
+                        await _topicConnection.SubscriptionClient.RemoveRuleAsync(RuleDescription.DefaultRuleName);
+                    }
+                }
+                catch (MessagingEntityNotFoundException ex)
+                {
+                    throw new Exceptions.ServiceBusException(
+                        $"Removing default rule {RuleDescription.DefaultRuleName} (if exists) failed.", ex.InnerException);
+                }
+            }
         }
 
         public void RegisterQueueListener(QueueListenerConfiguration configuration = null)
@@ -236,9 +237,9 @@ namespace Softeq.NetKit.Components.EventBus.Service
         }
 
         private async Task HandleReceivedMessage(
-            IReceiverClient receiverClient, 
+            IReceiverClient receiverClient,
             ISenderClient senderClient,
-            Message message, 
+            Message message,
             CancellationToken token)
         {
             var eventName = message.Label;
@@ -248,20 +249,23 @@ namespace Softeq.NetKit.Components.EventBus.Service
             // Complete the message so that it is not received again.
             await receiverClient.CompleteAsync(message.SystemProperties.LockToken);
 
-            if (_eventPublishConfiguration.SendCompletionEvent)
+            if (!_eventPublishConfiguration.SendCompletionEvent)
             {
-                var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
-                if (eventType != null && eventType != typeof(CompletedEvent))
-                {
-                    var eventData = JObject.Parse(messageData);
-                    if (Guid.TryParse((string)eventData["Id"], out var eventId))
-                    {
-                        var publisherId = (string)eventData["PublisherId"];
+                return;
+            }
 
-                        var completedEvent = new CompletedEvent(eventId, publisherId);
-                        await PublishEventAsync(completedEvent, senderClient);
-                    }
-                }
+            var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
+            if (eventType == null || eventType == typeof(CompletedEvent))
+            {
+                return;
+            }
+
+            var eventData = JObject.Parse(messageData);
+            if (Guid.TryParse((string) eventData["Id"], out var eventId))
+            {
+                var publisherId = (string) eventData["PublisherId"];
+                var completedEvent = new CompletedEvent(eventId, publisherId);
+                await PublishEventAsync(completedEvent, senderClient);
             }
         }
 
