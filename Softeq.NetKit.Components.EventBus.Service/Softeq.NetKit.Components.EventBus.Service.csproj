@@ -3,16 +3,21 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
-    <Version>2.0.1</Version>
+    <Version>0.0.5</Version>
     <Description></Description>
     <Authors>Softeq Development Corp.</Authors>
     <Company>Softeq Development Corp.</Company>
-    <AssemblyVersion>2.0.1.0</AssemblyVersion>
-    <PackageId>Softeq.NetKit.EventDrivenCommunication</PackageId>
-    <Product>Softeq.NetKit.EventDrivenCommunication</Product>
+    <AssemblyVersion>0.0.1.0</AssemblyVersion>
+    <PackageId>Softeq.NetKit.EventDrivenCommunication.Halo</PackageId>
+    <Product>Softeq.NetKit.EventDrivenCommunication.Halo</Product>
     <PackageProjectUrl>https://github.com/Softeq/EventDrivenCommunication</PackageProjectUrl>
-    <PackageLicenseUrl>https://github.com/Softeq/EventDrivenCommunication/blob/master/LICENSE</PackageLicenseUrl>
     <LangVersion>7.2</LangVersion>
+    <Copyright></Copyright>
+    <PackageReleaseNotes>* Downgrade EF Core version to 2.2.6
+* Change IntegrationEventLog structure
+* IntegrationEventLogService API changes</PackageReleaseNotes>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
