@@ -33,7 +33,7 @@ namespace Softeq.NetKit.Integrations.EventLog
         public EventState EventState { get; private set; }
         public int TimesSent { get; private set; }
         public DateTimeOffset Created { get; private set; }
-        public DateTimeOffset? Updated { get; set; }
+        public DateTimeOffset? Updated { get; private set; }
         public string SessionId { get; private set; }
         public IntegrationEvent Content { get; private set; }
 
@@ -58,20 +58,21 @@ namespace Softeq.NetKit.Integrations.EventLog
             }
 
             EventState = newEventState;
+            Updated = DateTimeOffset.UtcNow;
 
-            void EnsureStateTransitionAllowed(params EventState[] allowedStates)
+            void EnsureStateTransitionAllowed(params EventState[] allowedFromStates)
             {
-                if (!allowedStates.Any())
+                if (!allowedFromStates.Any())
                 {
                     throw new InvalidOperationException(
-                        $"Unable to change event log state from '{EventState}' to '{newEventState}'.");
+                        $"Changing event log state from '{EventState}' is not allowed.");
                 }
 
-                if (!allowedStates.Contains(EventState))
+                if (!allowedFromStates.Contains(EventState))
                 {
                     throw new InvalidOperationException(
                         $"Unable to change event log state from '{EventState}' to '{newEventState}' " +
-                        $"Allowed states: {string.Join(", ", allowedStates.Select(state => $"'{state}'"))}.");
+                        $"Allowed states: {string.Join(", ", allowedFromStates.Select(state => $"'{state}'"))}.");
                 }
             }
         }

@@ -110,8 +110,8 @@ namespace Softeq.NetKit.Components.EventBus.Service
             _topicConnection.SubscriptionClient.RegisterMessageHandler(
                 async (message, token) => await HandleReceivedMessage(
                     _topicConnection.SubscriptionClient,
-                    _topicConnection.TopicClient, 
-                    message, 
+                    _topicConnection.TopicClient,
+                    message,
                     token),
                 new MessageHandlerOptions(ExceptionReceivedHandler) { MaxConcurrentCalls = 10, AutoComplete = false });
 
@@ -145,12 +145,12 @@ namespace Softeq.NetKit.Components.EventBus.Service
                     MaxConcurrentSessions = configuration.MaxConcurrent
                 };
                 _queueConnection.QueueClient.RegisterSessionHandler(
-                    async (session, message, token) => 
+                    async (session, message, token) =>
                         await HandleReceivedMessage(
                             session,
-                            _topicConnection.TopicClient, 
-                            message, 
-                            token), 
+                            _topicConnection.TopicClient,
+                            message,
+                            token),
                     handlerOptions);
             }
             else
@@ -162,12 +162,12 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 };
 
                 _queueConnection.QueueClient.RegisterMessageHandler(
-                    async (message, token) => 
+                    async (message, token) =>
                         await HandleReceivedMessage(
                             _queueConnection.QueueClient,
-                            _queueConnection.QueueClient, 
-                            message, 
-                            token), 
+                            _queueConnection.QueueClient,
+                            message,
+                            token),
                     handlerOptions);
             }
         }
@@ -261,9 +261,9 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
 
             var eventData = JObject.Parse(messageData);
-            if (Guid.TryParse((string) eventData["Id"], out var eventId))
+            if (Guid.TryParse((string)eventData["Id"], out var eventId))
             {
-                var publisherId = (string) eventData["PublisherId"];
+                var publisherId = (string)eventData["PublisherId"];
                 var completedEvent = new CompletedEvent(eventId, publisherId);
                 await PublishEventAsync(completedEvent, senderClient);
             }

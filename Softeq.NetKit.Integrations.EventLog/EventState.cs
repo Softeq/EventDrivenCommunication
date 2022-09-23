@@ -8,6 +8,6 @@ namespace Softeq.NetKit.Integrations.EventLog
         NotPublished = 0,
         Published = 1,
         PublishedFailed = 2,
-		Completed = 3
+        Completed = 3
     }
 }

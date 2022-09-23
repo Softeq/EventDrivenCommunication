@@ -20,7 +20,6 @@ namespace Softeq.NetKit.Integrations.EventLog
             base.OnModelCreating(builder);
 
             builder.HasDefaultSchema("dbo");
-
             builder.AddEntityConfigurationsFromAssembly<IEntityMappingConfiguration>(GetType().Assembly);
         }
     }
