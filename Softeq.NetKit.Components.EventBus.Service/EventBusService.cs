@@ -127,7 +127,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 catch (MessagingEntityNotFoundException ex)
                 {
                     throw new Exceptions.ServiceBusException(
-                        $"Removing default rule {RuleDescription.DefaultRuleName} (if exists) failed.", ex.InnerException);
+                        $"Removing default rule {RuleDescription.DefaultRuleName} (if exists) failed.", ex);
                 }
             }
         }
@@ -199,7 +199,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
             catch (ServiceBusException ex)
             {
                 throw new Exceptions.ServiceBusException(
-                    $"Checking rule {ruleName} existence failed.", ex.InnerException);
+                    $"Checking rule {ruleName} existence failed.", ex);
             }
         }
 
@@ -219,7 +219,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
             catch (ServiceBusException ex)
             {
                 throw new Exceptions.ServiceBusException(
-                    $"Adding subscription rule for the entity {eventName} failed.", ex.InnerException);
+                    $"Adding subscription rule for the entity {eventName} failed.", ex);
             }
         }
 
@@ -231,8 +231,8 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
             catch (MessagingEntityNotFoundException ex)
             {
-                throw new Exceptions.ServiceBusException($"The messaging entity {eventName} could not be found.",
-                    ex.InnerException);
+                throw new Exceptions.ServiceBusException(
+                    $"The messaging entity {eventName} could not be found.", ex);
             }
         }
 
