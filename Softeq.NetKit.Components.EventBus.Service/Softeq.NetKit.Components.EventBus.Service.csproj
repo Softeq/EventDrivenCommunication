@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
-    <Version>0.0.5</Version>
+    <Version>0.0.1-alpha</Version>
     <Description></Description>
     <Authors>Softeq Development Corp.</Authors>
     <Company>Softeq Development Corp.</Company>
