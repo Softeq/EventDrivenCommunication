@@ -8,7 +8,7 @@
     <Authors>Softeq Development Corp.</Authors>
     <Company>Softeq Development Corp.</Company>
     <AssemblyVersion>0.0.1.0</AssemblyVersion>
-    <PackageId>Softeq.NetKit.EventDrivenCommunication.Halo</PackageId>
+    <PackageId>Softeq.NetKit.Halo.EventDrivenCommunication</PackageId>
     <Product>Softeq.NetKit.EventDrivenCommunication.Halo</Product>
     <PackageProjectUrl>https://github.com/Softeq/EventDrivenCommunication</PackageProjectUrl>
     <LangVersion>7.2</LangVersion>
