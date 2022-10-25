@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Softeq.NetKit.Components.EventBus.Service.Connection
 {
-    public class ServiceBusQueueConnection : IAsyncDisposable
+    public sealed class ServiceBusQueueConnection : IAsyncDisposable
     {
         private IQueueClient _queueClient;
         private readonly Func<IQueueClient> _queueClientFactory;
@@ -46,7 +46,7 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
         {
             if (_queueClient != null && !_queueClient.IsClosedOrClosing)
             {
-                await _queueClient.CloseAsync();
+                await _queueClient.CloseAsync().ConfigureAwait(false);
             }
         }
 

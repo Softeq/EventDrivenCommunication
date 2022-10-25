@@ -7,7 +7,7 @@ using Microsoft.Azure.ServiceBus.Core;
 
 namespace Softeq.NetKit.Components.EventBus.Service.Connection
 {
-    public class ServiceBusPersisterConnection : IServiceBusPersisterConnection
+    public sealed class ServiceBusPersisterConnection : IServiceBusPersisterConnection
     {
         public ServiceBusPersisterConnection(ServiceBusPersisterConnectionConfiguration configuration)
         {

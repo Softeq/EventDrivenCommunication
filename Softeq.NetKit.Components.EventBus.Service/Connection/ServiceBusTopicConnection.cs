@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Softeq.NetKit.Components.EventBus.Service.Connection
 {
-    public class ServiceBusTopicConnection : IAsyncDisposable
+    public sealed class ServiceBusTopicConnection : IAsyncDisposable
     {
         private readonly Func<ITopicClient> _topicClientFactory;
         private readonly Func<ISubscriptionClient> _subscriptionClientFactory;
@@ -65,12 +65,12 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
         {
             if (_topicClient != null && !_topicClient.IsClosedOrClosing)
             {
-                await _topicClient.CloseAsync();
+                await _topicClient.CloseAsync().ConfigureAwait(false);
             }
 
             if (_subscriptionClient != null && !_subscriptionClient.IsClosedOrClosing)
             {
-                await _subscriptionClient.CloseAsync();
+                await _subscriptionClient.CloseAsync().ConfigureAwait(false);
             }
         }
 
