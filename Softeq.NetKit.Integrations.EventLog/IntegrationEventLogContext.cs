@@ -3,8 +3,7 @@
 
 using Microsoft.EntityFrameworkCore;
 using Softeq.NetKit.Integrations.EventLog.Extensions;
-using Softeq.NetKit.Integrations.EventLog.Mappings.Abstract;
-using Softeq.NetKit.Integrations.EventLog.Seeds.Abstract;
+using Softeq.NetKit.Integrations.EventLog.Mappings;
 
 namespace Softeq.NetKit.Integrations.EventLog
 {
@@ -17,12 +16,11 @@ namespace Softeq.NetKit.Integrations.EventLog
         public DbSet<IntegrationEventLog> IntegrationEventLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
-		{
-		    //put db configuration here
-		    base.OnModelCreating(builder);
+        {
+            base.OnModelCreating(builder);
 
-		    builder.AddEntityConfigurationsFromAssembly<IEntityMappingConfiguration>(GetType().Assembly);
-		    builder.AddEntityConfigurationsFromAssembly<IEntitySeedConfiguration>(GetType().Assembly);
-	    }
+            builder.HasDefaultSchema("dbo");
+            builder.AddEntityConfigurationsFromAssembly<IEntityMappingConfiguration>(GetType().Assembly);
+        }
     }
 }

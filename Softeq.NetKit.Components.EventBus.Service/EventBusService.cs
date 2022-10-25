@@ -32,7 +32,8 @@ namespace Softeq.NetKit.Components.EventBus.Service
         private bool IsSubscriptionAvailable => _topicConnection?.SubscriptionClient != null;
         private bool IsQueueAvailable => _queueConnection != null;
 
-        public EventBusService(IServiceBusPersisterConnection serviceBusPersisterConnection,
+        public EventBusService(
+            IServiceBusPersisterConnection serviceBusPersisterConnection,
             IEventBusSubscriptionsManager subscriptionsManager,
             IServiceProvider serviceProvider,
             ILoggerFactory loggerFactory,
@@ -100,22 +101,6 @@ namespace Softeq.NetKit.Components.EventBus.Service
             _subscriptionsManager.RemoveDynamicSubscription<TEventHandler>(eventName);
         }
 
-        private async Task RemoveDefaultRuleIfExists()
-        {
-            try
-            {
-                if (await CheckIfRuleExists(RuleDescription.DefaultRuleName))
-                {
-                    await _topicConnection.SubscriptionClient.RemoveRuleAsync(RuleDescription.DefaultRuleName);
-                }
-            }
-            catch (MessagingEntityNotFoundException ex)
-            {
-                throw new Exceptions.ServiceBusException(
-                    $"Removing default rule {RuleDescription.DefaultRuleName} (if exists) failed.", ex.InnerException);
-            }
-        }
-
         public async Task RegisterSubscriptionListenerAsync()
         {
             ValidateSubscription();
@@ -123,9 +108,28 @@ namespace Softeq.NetKit.Components.EventBus.Service
             await RemoveDefaultRuleIfExists();
 
             _topicConnection.SubscriptionClient.RegisterMessageHandler(
-                async (message, token) => await HandleReceivedMessage(_topicConnection.SubscriptionClient,
-                    _topicConnection.TopicClient, message, token),
+                async (message, token) => await HandleReceivedMessage(
+                    _topicConnection.SubscriptionClient,
+                    _topicConnection.TopicClient,
+                    message,
+                    token),
                 new MessageHandlerOptions(ExceptionReceivedHandler) { MaxConcurrentCalls = 10, AutoComplete = false });
+
+            async Task RemoveDefaultRuleIfExists()
+            {
+                try
+                {
+                    if (await CheckIfRuleExists(RuleDescription.DefaultRuleName))
+                    {
+                        await _topicConnection.SubscriptionClient.RemoveRuleAsync(RuleDescription.DefaultRuleName);
+                    }
+                }
+                catch (MessagingEntityNotFoundException ex)
+                {
+                    throw new Exceptions.ServiceBusException(
+                        $"Removing default rule {RuleDescription.DefaultRuleName} (if exists) failed.", ex);
+                }
+            }
         }
 
         public void RegisterQueueListener(QueueListenerConfiguration configuration = null)
@@ -138,12 +142,16 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 var handlerOptions = new SessionHandlerOptions(ExceptionReceivedHandler)
                 {
                     AutoComplete = false,
-                    MaxConcurrentSessions = configuration?.MaxConcurrent ?? 10
-
+                    MaxConcurrentSessions = configuration.MaxConcurrent
                 };
                 _queueConnection.QueueClient.RegisterSessionHandler(
-                    async (session, message, token) => await HandleReceivedMessage(_queueConnection.QueueClient,
-                    _queueConnection.QueueClient, message, token), handlerOptions);
+                    async (session, message, token) =>
+                        await HandleReceivedMessage(
+                            session,
+                            _topicConnection.TopicClient,
+                            message,
+                            token),
+                    handlerOptions);
             }
             else
             {
@@ -154,8 +162,13 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 };
 
                 _queueConnection.QueueClient.RegisterMessageHandler(
-                    async (message, token) => await HandleReceivedMessage(_queueConnection.QueueClient,
-                        _queueConnection.QueueClient, message, token), handlerOptions);
+                    async (message, token) =>
+                        await HandleReceivedMessage(
+                            _queueConnection.QueueClient,
+                            _queueConnection.QueueClient,
+                            message,
+                            token),
+                    handlerOptions);
             }
         }
 
@@ -186,7 +199,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
             catch (ServiceBusException ex)
             {
                 throw new Exceptions.ServiceBusException(
-                    $"Checking rule {ruleName} existence failed.", ex.InnerException);
+                    $"Checking rule {ruleName} existence failed.", ex);
             }
         }
 
@@ -206,7 +219,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
             catch (ServiceBusException ex)
             {
                 throw new Exceptions.ServiceBusException(
-                    $"Adding subscription rule for the entity {eventName} failed.", ex.InnerException);
+                    $"Adding subscription rule for the entity {eventName} failed.", ex);
             }
         }
 
@@ -218,13 +231,16 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
             catch (MessagingEntityNotFoundException ex)
             {
-                throw new Exceptions.ServiceBusException($"The messaging entity {eventName} could not be found.",
-                    ex.InnerException);
+                throw new Exceptions.ServiceBusException(
+                    $"The messaging entity {eventName} could not be found.", ex);
             }
         }
 
-        private async Task HandleReceivedMessage(IReceiverClient receiverClient, ISenderClient senderClient,
-            Message message, CancellationToken token)
+        private async Task HandleReceivedMessage(
+            IReceiverClient receiverClient,
+            ISenderClient senderClient,
+            Message message,
+            CancellationToken token)
         {
             var eventName = message.Label;
             var messageData = Encoding.UTF8.GetString(message.Body);
@@ -233,20 +249,23 @@ namespace Softeq.NetKit.Components.EventBus.Service
             // Complete the message so that it is not received again.
             await receiverClient.CompleteAsync(message.SystemProperties.LockToken);
 
-            if (_eventPublishConfiguration.SendCompletionEvent)
+            if (!_eventPublishConfiguration.SendCompletionEvent)
             {
-                var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
-                if (eventType != null && eventType != typeof(CompletedEvent))
-                {
-                    var eventData = JObject.Parse(messageData);
-                    if (Guid.TryParse((string)eventData["Id"], out var eventId))
-                    {
-                        var publisherId = (string)eventData["PublisherId"];
+                return;
+            }
 
-                        var completedEvent = new CompletedEvent(eventId, publisherId);
-                        await PublishEventAsync(completedEvent, senderClient);
-                    }
-                }
+            var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
+            if (eventType == null || eventType == typeof(CompletedEvent))
+            {
+                return;
+            }
+
+            var eventData = JObject.Parse(messageData);
+            if (Guid.TryParse((string)eventData["Id"], out var eventId))
+            {
+                var publisherId = (string)eventData["PublisherId"];
+                var completedEvent = new CompletedEvent(eventId, publisherId);
+                await PublishEventAsync(completedEvent, senderClient);
             }
         }
 
@@ -274,7 +293,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
                         var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
                         var integrationEvent = JsonConvert.DeserializeObject(message, eventType);
                         var concreteType = typeof(IEventHandler<>).MakeGenericType(eventType);
-                        await (Task)concreteType.GetMethod("Handle").Invoke(handler, new[] { integrationEvent });
+                        await (Task)concreteType.GetMethod(nameof(IEventHandler<IntegrationEvent>.Handle)).Invoke(handler, new[] { integrationEvent });
                     }
                 }
             }

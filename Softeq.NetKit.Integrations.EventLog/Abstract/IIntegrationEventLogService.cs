@@ -12,10 +12,10 @@ namespace Softeq.NetKit.Integrations.EventLog.Abstract
     public interface IIntegrationEventLogService
     {
         Task<IntegrationEventLog> GetAsync(Guid eventId);
-        Task<List<IntegrationEventLog>> GetAsync(Expression<Func<IntegrationEventLog, bool>> where);
-        Task SaveAsync(IntegrationEvent @event);
+        Task<List<IntegrationEventLog>> GetAsync(Expression<Func<IntegrationEventLog, bool>> condition);
+        Task CreateAsync(IntegrationEvent @event);
         Task MarkAsPublishedAsync(IntegrationEvent @event);
-        Task CompleteAsync(Guid eventId);
-        Task UpdateAsync(IntegrationEventLog @event);
+        Task MarkAsPublishedFailedAsync(IntegrationEvent @event);
+        Task MarkAsCompletedAsync(Guid eventId);
     }
 }

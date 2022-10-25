@@ -6,12 +6,8 @@ using System.Threading.Tasks;
 
 namespace Softeq.NetKit.Components.EventBus.Abstract
 {
-    public interface IEventHandler<in TIntegrationEvent> : IEventHandler where TIntegrationEvent: IntegrationEvent
+    public interface IEventHandler<in TIntegrationEvent> where TIntegrationEvent : IntegrationEvent
     {
         Task Handle(TIntegrationEvent @event);
-    }
-
-    public interface IEventHandler
-    {
     }
 }

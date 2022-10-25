@@ -4,10 +4,11 @@
 using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.ServiceBus.Primitives;
 using System;
+using System.Threading.Tasks;
 
 namespace Softeq.NetKit.Components.EventBus.Service.Connection
 {
-    public class ServiceBusQueueConnection
+    public sealed class ServiceBusQueueConnection : IAsyncDisposable
     {
         private IQueueClient _queueClient;
         private readonly Func<IQueueClient> _queueClientFactory;
@@ -39,6 +40,14 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
             }
 
             _queueClientFactory = () => CreateClient(namespaceName, configuration.QueueName, tokenProvider);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_queueClient != null && !_queueClient.IsClosedOrClosing)
+            {
+                await _queueClient.CloseAsync().ConfigureAwait(false);
+            }
         }
 
         private static IQueueClient CreateClient(string connectionString, string queueName)
