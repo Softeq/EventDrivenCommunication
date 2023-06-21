@@ -172,18 +172,38 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
         }
 
-        private static Task PublishMessageAsync(Message message, ISenderClient client, int? delayInSeconds = null)
+        private Task PublishEventAsync(IntegrationEvent @event, ISenderClient client, int? delayInSeconds = null)
         {
+            if (string.IsNullOrEmpty(@event.PublisherId))
+            {
+                @event.PublisherId = _eventPublishConfiguration.EventPublisherId;
+            }
+
+            var message = CreateMessageForPublish(@event);
+
             return delayInSeconds.HasValue
                 ? client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value))
                 : client.SendAsync(message);
-        }
 
-        private Task PublishEventAsync(IntegrationEvent @event, ISenderClient client, int? delayInSeconds = null)
-        {
-            var message = GetMessageForPublish(@event);
-
-            return PublishMessageAsync(message, client, delayInSeconds);
+            Message CreateMessageForPublish(IntegrationEvent integrationEvent)
+            {
+                var eventName = integrationEvent.GetType().Name;
+                var jsonMessage = JsonConvert.SerializeObject(integrationEvent);
+                var body = Encoding.UTF8.GetBytes(jsonMessage);
+                var result = new Message
+                {
+                    MessageId = Guid.NewGuid().ToString(),
+                    Body = body,
+                    Label = eventName,
+                    CorrelationId = integrationEvent.CorrelationId,
+                    SessionId = integrationEvent.SessionId
+                };
+                if (_messageQueueConfiguration.TimeToLiveInMinutes.HasValue)
+                {
+                    result.TimeToLive = TimeSpan.FromMinutes(_messageQueueConfiguration.TimeToLiveInMinutes.Value);
+                }
+                return result;
+            }
         }
 
         private async Task<bool> CheckIfRuleExists(string ruleName)
@@ -309,30 +329,6 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 $"Entity Path: {context.EntityPath}\n" +
                 $"Executing Action: {context.Action}");
             return Task.CompletedTask;
-        }
-
-        private Message GetMessageForPublish(IntegrationEvent @event)
-        {
-            @event.PublisherId = _eventPublishConfiguration.EventPublisherId;
-            var eventName = @event.GetType().Name;
-            var jsonMessage = JsonConvert.SerializeObject(@event);
-            var body = Encoding.UTF8.GetBytes(jsonMessage);
-
-            var message = new Message
-            {
-                MessageId = Guid.NewGuid().ToString(),
-                Body = body,
-                Label = eventName,
-                CorrelationId = @event.CorrelationId,
-                SessionId = @event.SessionId
-            };
-
-            if (_messageQueueConfiguration.TimeToLiveInMinutes.HasValue)
-            {
-                message.TimeToLive = TimeSpan.FromMinutes(_messageQueueConfiguration.TimeToLiveInMinutes.Value);
-            }
-
-            return message;
         }
 
         private void ValidateTopic()
