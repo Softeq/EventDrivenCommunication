@@ -2,8 +2,6 @@
 // http://www.softeq.com
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Softeq.NetKit.Components.EventBus.Events;
 using Softeq.NetKit.Integrations.EventLog.Abstract;
 using Softeq.NetKit.Integrations.EventLog.Exceptions;
 using System;
@@ -25,7 +23,7 @@ namespace Softeq.NetKit.Integrations.EventLog
 
         public async Task<IntegrationEventLog> GetAsync(Guid eventId)
         {
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == eventId);
+            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.Content.Id == eventId);
             if (eventLog == null)
             {
                 throw new EventLogNotFoundException(eventId);
@@ -44,55 +42,39 @@ namespace Softeq.NetKit.Integrations.EventLog
             return await EventLogContext.IntegrationEventLogs.Where(condition).ToListAsync();
         }
 
-        public Task CreateAsync(IntegrationEvent @event)
+        public Task CreateAsync(IntegrationEventLog eventLog)
         {
-            var eventLog = new IntegrationEventLog(@event);
             EventLogContext.IntegrationEventLogs.Add(eventLog);
             return EventLogContext.SaveChangesAsync();
         }
 
-        public async Task MarkAsPublishedAsync(IntegrationEvent @event)
+        public async Task MarkAsPublishedAsync(IntegrationEventLog eventLog)
         {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
-
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == @event.Id);
             if (eventLog == null)
             {
-                throw new EventLogNotFoundException(@event.Id);
+                throw new ArgumentNullException(nameof(eventLog));
             }
 
-            // Published event has PublisherId so need to update it also
-            eventLog.Content.PublisherId = @event.PublisherId;
             eventLog.ChangeEventState(EventState.Published);
             await UpdateAsync(eventLog);
         }
 
-        public async Task MarkAsPublishedFailedAsync(IntegrationEvent @event)
+        public async Task MarkAsPublishedFailedAsync(IntegrationEventLog eventLog)
         {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
-
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == @event.Id);
             if (eventLog == null)
             {
-                throw new EventLogNotFoundException(@event.Id);
+                throw new ArgumentNullException(nameof(eventLog));
             }
 
             eventLog.ChangeEventState(EventState.PublishedFailed);
             await UpdateAsync(eventLog);
         }
 
-        public async Task MarkAsCompletedAsync(Guid eventId)
+        public async Task MarkAsCompletedAsync(IntegrationEventLog eventLog)
         {
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == eventId);
             if (eventLog == null)
             {
-                throw new EventLogNotFoundException(eventId);
+                throw new ArgumentNullException(nameof(eventLog));
             }
 
             eventLog.ChangeEventState(EventState.Completed);

@@ -6,7 +6,6 @@ using Microsoft.Azure.ServiceBus.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Softeq.NetKit.Components.EventBus.Abstract;
 using Softeq.NetKit.Components.EventBus.Events;
 using Softeq.NetKit.Components.EventBus.Managers;
@@ -21,7 +20,6 @@ namespace Softeq.NetKit.Components.EventBus.Service
 {
     public class EventBusService : IEventBusPublisher, IEventBusSubscriber
     {
-        private readonly MessageQueueConfiguration _messageQueueConfiguration;
         private readonly IEventBusSubscriptionsManager _subscriptionsManager;
         private readonly IServiceProvider _serviceProvider;
         private readonly ServiceBusTopicConnection _topicConnection;
@@ -29,7 +27,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
         private readonly ILogger _logger;
         private readonly EventPublishConfiguration _eventPublishConfiguration;
 
-        private bool IsSubscriptionAvailable => _topicConnection?.SubscriptionClient != null;
+        private bool IsTopicSubscriptionAvailable => _topicConnection?.SubscriptionClient != null;
         private bool IsQueueAvailable => _queueConnection != null;
 
         public EventBusService(
@@ -37,71 +35,17 @@ namespace Softeq.NetKit.Components.EventBus.Service
             IEventBusSubscriptionsManager subscriptionsManager,
             IServiceProvider serviceProvider,
             ILoggerFactory loggerFactory,
-            MessageQueueConfiguration messageQueueConfiguration,
             EventPublishConfiguration eventPublishConfiguration)
         {
             _topicConnection = serviceBusPersisterConnection.TopicConnection;
             _queueConnection = serviceBusPersisterConnection.QueueConnection;
             _subscriptionsManager = subscriptionsManager;
             _serviceProvider = serviceProvider;
-            _messageQueueConfiguration = messageQueueConfiguration;
             _eventPublishConfiguration = eventPublishConfiguration;
             _logger = loggerFactory.CreateLogger(GetType());
         }
 
-        public Task PublishToTopicAsync(IntegrationEvent @event, int? delayInSeconds = null)
-        {
-            ValidateTopic();
-            return PublishEventAsync(@event, _topicConnection.TopicClient, delayInSeconds);
-        }
-
-        public Task PublishToQueueAsync(IntegrationEvent @event, int? delayInSeconds = null)
-        {
-            ValidateQueue();
-            return PublishEventAsync(@event, _queueConnection.QueueClient, delayInSeconds);
-        }
-
-        public async Task SubscribeAsync<TEvent, TEventHandler>() where TEvent : IntegrationEvent
-            where TEventHandler : IEventHandler<TEvent>
-        {
-            var eventName = typeof(TEvent).Name;
-
-            var containsKey = _subscriptionsManager.HasSubscriptionsForEvent<TEvent>();
-            if (!containsKey)
-            {
-                if (IsSubscriptionAvailable)
-                {
-                    await AddSubscriptionRuleIfNotExists(eventName);
-                }
-
-                _subscriptionsManager.AddSubscription<TEvent, TEventHandler>();
-            }
-        }
-
-        public async Task UnsubscribeAsync<TEvent, TEventHandler>() where TEvent : IntegrationEvent
-            where TEventHandler : IEventHandler<TEvent>
-        {
-            var eventName = typeof(TEvent).Name;
-
-            if (IsSubscriptionAvailable)
-            {
-                await RemoveSubscriptionRule(eventName);
-            }
-
-            _subscriptionsManager.RemoveSubscription<TEvent, TEventHandler>();
-        }
-
-        public void SubscribeDynamic<TEventHandler>(string eventName) where TEventHandler : IDynamicEventHandler
-        {
-            _subscriptionsManager.AddDynamicSubscription<TEventHandler>(eventName);
-        }
-
-        public void UnsubscribeDynamic<TEventHandler>(string eventName) where TEventHandler : IDynamicEventHandler
-        {
-            _subscriptionsManager.RemoveDynamicSubscription<TEventHandler>(eventName);
-        }
-
-        public async Task RegisterSubscriptionListenerAsync()
+        public async Task RegisterTopicListenerAsync()
         {
             ValidateSubscription();
 
@@ -160,50 +104,115 @@ namespace Softeq.NetKit.Components.EventBus.Service
                     MaxConcurrentCalls = configuration?.MaxConcurrent ?? 1,
                     AutoComplete = false
                 };
-
                 _queueConnection.QueueClient.RegisterMessageHandler(
                     async (message, token) =>
                         await HandleReceivedMessage(
                             _queueConnection.QueueClient,
-                            _queueConnection.QueueClient,
+                            _topicConnection.TopicClient,
                             message,
                             token),
                     handlerOptions);
             }
         }
 
-        private Task PublishEventAsync(IntegrationEvent @event, ISenderClient client, int? delayInSeconds = null)
+        public async Task RegisterTopicEventAsync<TEvent>() where TEvent : IntegrationEvent
         {
-            if (string.IsNullOrEmpty(@event.PublisherId))
+            var eventName = typeof(TEvent).Name;
+            if (IsTopicSubscriptionAvailable)
             {
-                @event.PublisherId = _eventPublishConfiguration.EventPublisherId;
+                await AddTopicSubscriptionRuleIfNotExists();
             }
+            _subscriptionsManager.RegisterEventType<TEvent>();
 
-            var message = CreateMessageForPublish(@event);
-
-            return delayInSeconds.HasValue
-                ? client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value))
-                : client.SendAsync(message);
-
-            Message CreateMessageForPublish(IntegrationEvent integrationEvent)
+            async Task AddTopicSubscriptionRuleIfNotExists()
             {
-                var eventName = integrationEvent.GetType().Name;
-                var jsonMessage = JsonConvert.SerializeObject(integrationEvent);
-                var body = Encoding.UTF8.GetBytes(jsonMessage);
-                var result = new Message
+                try
                 {
-                    MessageId = Guid.NewGuid().ToString(),
-                    Body = body,
-                    Label = eventName,
-                    CorrelationId = integrationEvent.CorrelationId,
-                    SessionId = integrationEvent.SessionId
-                };
-                if (_messageQueueConfiguration.TimeToLiveInMinutes.HasValue)
-                {
-                    result.TimeToLive = TimeSpan.FromMinutes(_messageQueueConfiguration.TimeToLiveInMinutes.Value);
+                    if (!await CheckIfRuleExists(eventName))
+                    {
+                        await _topicConnection.SubscriptionClient.AddRuleAsync(new RuleDescription
+                        {
+                            Filter = new CorrelationFilter { Label = eventName },
+                            Name = eventName
+                        });
+                    }
                 }
-                return result;
+                catch (ServiceBusException ex)
+                {
+                    throw new Exceptions.ServiceBusException(
+                        $"Adding subscription rule for the entity {eventName} failed.", ex);
+                }
             }
+        }
+
+        public async Task RemoveTopicEventRegistrationAsync<TEvent>() where TEvent : IntegrationEvent
+        {
+            if (IsTopicSubscriptionAvailable)
+            {
+                var eventName = typeof(TEvent).Name;
+                await RemoveTopicSubscriptionRule(eventName);
+            }
+            _subscriptionsManager.RemoveEventType<TEvent>();
+
+            async Task RemoveTopicSubscriptionRule(string eventName)
+            {
+                try
+                {
+                    await _topicConnection.SubscriptionClient.RemoveRuleAsync(eventName);
+                }
+                catch (MessagingEntityNotFoundException ex)
+                {
+                    throw new Exceptions.ServiceBusException(
+                        $"The messaging entity {eventName} could not be found.", ex);
+                }
+            }
+        }
+
+        public void RegisterQueueEventAsync<TEvent>() where TEvent : IntegrationEvent
+        {
+            _subscriptionsManager.RegisterEventType<TEvent>();
+        }
+
+        public void RemoveQueueEventRegistrationAsync<TEvent>() where TEvent : IntegrationEvent
+        {
+            _subscriptionsManager.RemoveEventType<TEvent>();
+        }
+
+        public Task PublishToTopicAsync(IntegrationEventEnvelope @event)
+        {
+            ValidateTopic();
+            return PublishEventAsync(@event, _topicConnection.TopicClient);
+        }
+
+        public Task PublishToQueueAsync(IntegrationEventEnvelope @event)
+        {
+            ValidateQueue();
+            return PublishEventAsync(@event, _queueConnection.QueueClient);
+        }
+
+        private Task PublishEventAsync(IntegrationEventEnvelope integrationEventEnvelope, ISenderClient client)
+        {
+            //if (string.IsNullOrEmpty(integrationEventV2.PublisherId))
+            //{
+            //    integrationEventV2.PublisherId = _eventPublishConfiguration.EventPublisherId;
+            //}
+
+            var eventName = integrationEventEnvelope.Event.GetType().Name;
+            var jsonMessage = JsonConvert.SerializeObject(integrationEventEnvelope);
+            var body = Encoding.UTF8.GetBytes(jsonMessage);
+            var message = new Message
+            {
+                MessageId = Guid.NewGuid().ToString(),
+                Body = body,
+                Label = eventName,
+                CorrelationId = integrationEventEnvelope.CorrelationId,
+                SessionId = integrationEventEnvelope.SessionId
+            };
+            if (_eventPublishConfiguration.EventTimeToLive.HasValue)
+            {
+                message.TimeToLive = _eventPublishConfiguration.EventTimeToLive.Value;
+            }
+            return client.SendAsync(message);
         }
 
         private async Task<bool> CheckIfRuleExists(string ruleName)
@@ -223,39 +232,6 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
         }
 
-        private async Task AddSubscriptionRuleIfNotExists(string eventName)
-        {
-            try
-            {
-                if (!await CheckIfRuleExists(eventName))
-                {
-                    await _topicConnection.SubscriptionClient.AddRuleAsync(new RuleDescription
-                    {
-                        Filter = new CorrelationFilter { Label = eventName },
-                        Name = eventName
-                    });
-                }
-            }
-            catch (ServiceBusException ex)
-            {
-                throw new Exceptions.ServiceBusException(
-                    $"Adding subscription rule for the entity {eventName} failed.", ex);
-            }
-        }
-
-        private async Task RemoveSubscriptionRule(string eventName)
-        {
-            try
-            {
-                await _topicConnection.SubscriptionClient.RemoveRuleAsync(eventName);
-            }
-            catch (MessagingEntityNotFoundException ex)
-            {
-                throw new Exceptions.ServiceBusException(
-                    $"The messaging entity {eventName} could not be found.", ex);
-            }
-        }
-
         private async Task HandleReceivedMessage(
             IReceiverClient receiverClient,
             ISenderClient senderClient,
@@ -263,60 +239,52 @@ namespace Softeq.NetKit.Components.EventBus.Service
             CancellationToken token)
         {
             var eventName = message.Label;
-            var messageData = Encoding.UTF8.GetString(message.Body);
-            await ProcessEvent(eventName, messageData);
-
-            // Complete the message so that it is not received again.
-            await receiverClient.CompleteAsync(message.SystemProperties.LockToken);
-
-            if (!_eventPublishConfiguration.SendCompletionEvent)
-            {
-                return;
-            }
-
             var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
-            if (eventType == null || eventType == typeof(CompletedEvent))
+            var envelope = ParseEventEnvelopeAsync(message);
+            await ProcessEvent(eventName, envelope);
+            await receiverClient.CompleteAsync(message.SystemProperties.LockToken);
+            if (_eventPublishConfiguration.SendCompletionEvent && eventType != typeof(CompletedEvent))
             {
-                return;
-            }
-
-            var eventData = JObject.Parse(messageData);
-            if (Guid.TryParse((string)eventData["Id"], out var eventId))
-            {
-                var publisherId = (string)eventData["PublisherId"];
-                var completedEvent = new CompletedEvent(eventId, publisherId);
-                await PublishEventAsync(completedEvent, senderClient);
+                var completedEvent = new CompletedEvent(envelope.Id, envelope.PublisherId);
+                var completedEventEnvelope = new IntegrationEventEnvelope(_eventPublishConfiguration.EventPublisherId, completedEvent);
+                await PublishEventAsync(completedEventEnvelope, senderClient);
             }
         }
 
-        private async Task ProcessEvent(string eventName, string message)
+        private IntegrationEventEnvelope ParseEventEnvelopeAsync(Message message)
         {
-            if (!_subscriptionsManager.HasSubscriptionsForEvent(eventName))
+            var eventName = message.Label;
+            var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
+            var envelopeBody = Encoding.UTF8.GetString(message.Body);
+            var envelope = (IntegrationEventEnvelope)JsonConvert.DeserializeObject(envelopeBody, eventType);
+            if (envelope == null)
+            {
+                throw new InvalidOperationException($"Failed to parse received message '{eventName}'. Raw body: '{envelopeBody}'.");
+            }
+            envelope.Event.Id = envelope.Id;
+            envelope.Event.Created = envelope.Created;
+            return envelope;
+        }
+
+        private async Task ProcessEvent(string eventName, IntegrationEventEnvelope integrationEventEnvelope)
+        {
+            if (!_subscriptionsManager.IsEventRegistered(eventName))
             {
                 return;
             }
 
             using (var scope = _serviceProvider.CreateScope())
             {
-                var subscriptions = _subscriptionsManager.GetEventHandlers(eventName);
-                foreach (var subscription in subscriptions)
-                {
-                    var handler = scope.ServiceProvider.GetService(subscription.HandlerType);
-
-                    if (subscription.IsDynamic && handler is IDynamicEventHandler eventHandler)
-                    {
-                        dynamic eventData = JObject.Parse(message);
-                        await eventHandler.Handle(eventData);
-                    }
-                    else if (handler != null)
-                    {
-                        var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
-                        var integrationEvent = JsonConvert.DeserializeObject(message, eventType);
-                        var concreteType = typeof(IEventHandler<>).MakeGenericType(eventType);
-                        await (Task)concreteType.GetMethod(nameof(IEventHandler<IntegrationEvent>.Handle)).Invoke(handler, new[] { integrationEvent });
-                    }
-                }
+                var handlerType = typeof(IIntegrationEventHandler<>).MakeGenericType(integrationEventEnvelope.Event.GetType());
+                var handler = scope.ServiceProvider.GetRequiredService(handlerType);
+                await HandleParsedEventAsync((dynamic)handler, (dynamic)integrationEventEnvelope.Event);
             }
+        }
+
+        private static async Task HandleParsedEventAsync<TEventContent>(IIntegrationEventHandler<TEventContent> handler, TEventContent content)
+            where TEventContent : IntegrationEvent
+        {
+            await handler.HandleAsync(content);
         }
 
         private Task ExceptionReceivedHandler(ExceptionReceivedEventArgs exceptionReceivedEventArgs)
@@ -341,7 +309,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
 
         private void ValidateSubscription()
         {
-            if (!IsSubscriptionAvailable)
+            if (!IsTopicSubscriptionAvailable)
             {
                 throw new InvalidOperationException("Topic Subscription connection is not configured");
             }

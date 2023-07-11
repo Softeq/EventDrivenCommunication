@@ -9,11 +9,11 @@ namespace Softeq.NetKit.Integrations.EventLog.Utility
         protected override JsonProperty CreateProperty(MemberInfo member, MemberSerialization memberSerialization)
         {
             var property = base.CreateProperty(member, memberSerialization);
-            MakeWriteable(property, member);
+            MakeWritable(property, member);
             return property;
         }
 
-        internal static JsonProperty MakeWriteable(JsonProperty jProperty, MemberInfo member)
+        internal static JsonProperty MakeWritable(JsonProperty jProperty, MemberInfo member)
         {
             var property = member as PropertyInfo;
             if (property == null)

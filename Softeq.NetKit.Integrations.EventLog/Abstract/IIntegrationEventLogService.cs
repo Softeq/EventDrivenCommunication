@@ -1,7 +1,6 @@
 ﻿// Developed by Softeq Development Corporation
 // http://www.softeq.com
 
-using Softeq.NetKit.Components.EventBus.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
@@ -13,9 +12,9 @@ namespace Softeq.NetKit.Integrations.EventLog.Abstract
     {
         Task<IntegrationEventLog> GetAsync(Guid eventId);
         Task<List<IntegrationEventLog>> GetAsync(Expression<Func<IntegrationEventLog, bool>> condition);
-        Task CreateAsync(IntegrationEvent @event);
-        Task MarkAsPublishedAsync(IntegrationEvent @event);
-        Task MarkAsPublishedFailedAsync(IntegrationEvent @event);
-        Task MarkAsCompletedAsync(Guid eventId);
+        Task CreateAsync(IntegrationEventLog eventLog);
+        Task MarkAsPublishedAsync(IntegrationEventLog eventLog);
+        Task MarkAsPublishedFailedAsync(IntegrationEventLog eventLog);
+        Task MarkAsCompletedAsync(IntegrationEventLog eventLog);
     }
 }

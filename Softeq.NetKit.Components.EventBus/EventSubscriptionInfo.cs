@@ -5,25 +5,14 @@ using System;
 
 namespace Softeq.NetKit.Components.EventBus
 {
+    // TODO: Is that needed?
     public class EventSubscriptionInfo
     {
-        public bool IsDynamic { get; }
-        public Type HandlerType { get; }
-
-        private EventSubscriptionInfo(bool isDynamic, Type handlerType)
+        public EventSubscriptionInfo(Type handlerType)
         {
-            IsDynamic = isDynamic;
             HandlerType = handlerType;
         }
 
-        public static EventSubscriptionInfo Dynamic(Type handlerType)
-        {
-            return new EventSubscriptionInfo(true, handlerType);
-        }
-
-        public static EventSubscriptionInfo Typed(Type handlerType)
-        {
-            return new EventSubscriptionInfo(false, handlerType);
-        }
+        public Type HandlerType { get; }
     }
 }
