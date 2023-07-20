@@ -9,28 +9,19 @@ namespace Softeq.NetKit.Integrations.EventLog
 {
     public class IntegrationEventLog
     {
-        private IntegrationEventLog()
-        {
-        }
+        private IntegrationEventLog() { }
 
-        public IntegrationEventLog(IntegrationEventEnvelope @event)
+        public IntegrationEventLog(IntegrationEventEnvelope eventEnvelope)
         {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
-
-            EventTypeName = @event.GetType().FullName;
+            EventEnvelope = eventEnvelope ?? throw new ArgumentNullException(nameof(eventEnvelope));
             EventState = EventState.NotPublished;
             TimesSent = 0;
-            Content = @event;
         }
 
-        public string EventTypeName { get; private set; }
         public EventState EventState { get; private set; }
         public int TimesSent { get; private set; }
         public DateTimeOffset? Updated { get; private set; }
-        public IntegrationEventEnvelope Content { get; private set; }
+        public IntegrationEventEnvelope EventEnvelope { get; private set; }
 
         public void ChangeEventState(EventState newEventState)
         {

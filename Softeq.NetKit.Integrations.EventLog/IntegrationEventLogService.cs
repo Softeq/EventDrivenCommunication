@@ -18,28 +18,39 @@ namespace Softeq.NetKit.Integrations.EventLog
 
         public IntegrationEventLogService(IntegrationEventLogContext eventLogContext)
         {
-            EventLogContext = eventLogContext;
+            EventLogContext = eventLogContext ?? throw new ArgumentNullException(nameof(eventLogContext));
         }
 
-        public async Task<IntegrationEventLog> GetAsync(Guid eventId)
+        public async Task<IntegrationEventLog> GetAsync(Guid eventEnvelopeId)
         {
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.Content.Id == eventId);
+            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(
+                log => log.EventEnvelope.Id == eventEnvelopeId);
             if (eventLog == null)
             {
-                throw new EventLogNotFoundException(eventId);
+                throw new EventLogNotFoundException(eventEnvelopeId);
             }
 
             return eventLog;
         }
 
-        public async Task<List<IntegrationEventLog>> GetAsync(Expression<Func<IntegrationEventLog, bool>> condition)
+        public Task<List<IntegrationEventLog>> GetAsync(Expression<Func<IntegrationEventLog, bool>> condition)
         {
             if (condition == null)
             {
                 throw new ArgumentNullException(nameof(condition));
             }
 
-            return await EventLogContext.IntegrationEventLogs.Where(condition).ToListAsync();
+            return EventLogContext.IntegrationEventLogs.Where(condition).ToListAsync();
+        }
+
+        public Task<bool> AnyAsync(Expression<Func<IntegrationEventLog, bool>> condition)
+        {
+            if (condition == null)
+            {
+                throw new ArgumentNullException(nameof(condition));
+            }
+
+            return EventLogContext.IntegrationEventLogs.AnyAsync(condition);
         }
 
         public Task CreateAsync(IntegrationEventLog eventLog)
@@ -48,7 +59,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             return EventLogContext.SaveChangesAsync();
         }
 
-        public async Task MarkAsPublishedAsync(IntegrationEventLog eventLog)
+        public Task MarkAsPublishedAsync(IntegrationEventLog eventLog)
         {
             if (eventLog == null)
             {
@@ -56,10 +67,10 @@ namespace Softeq.NetKit.Integrations.EventLog
             }
 
             eventLog.ChangeEventState(EventState.Published);
-            await UpdateAsync(eventLog);
+            return UpdateAsync(eventLog);
         }
 
-        public async Task MarkAsPublishedFailedAsync(IntegrationEventLog eventLog)
+        public Task MarkAsPublishedFailedAsync(IntegrationEventLog eventLog)
         {
             if (eventLog == null)
             {
@@ -67,10 +78,10 @@ namespace Softeq.NetKit.Integrations.EventLog
             }
 
             eventLog.ChangeEventState(EventState.PublishedFailed);
-            await UpdateAsync(eventLog);
+            return UpdateAsync(eventLog);
         }
 
-        public async Task MarkAsCompletedAsync(IntegrationEventLog eventLog)
+        public Task MarkAsCompletedAsync(IntegrationEventLog eventLog)
         {
             if (eventLog == null)
             {
@@ -78,10 +89,10 @@ namespace Softeq.NetKit.Integrations.EventLog
             }
 
             eventLog.ChangeEventState(EventState.Completed);
-            await UpdateAsync(eventLog);
+            return UpdateAsync(eventLog);
         }
 
-        private async Task UpdateAsync(IntegrationEventLog @event)
+        private Task UpdateAsync(IntegrationEventLog @event)
         {
             if (@event == null)
             {
@@ -89,7 +100,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             }
 
             EventLogContext.IntegrationEventLogs.Update(@event);
-            await EventLogContext.SaveChangesAsync();
+            return EventLogContext.SaveChangesAsync();
         }
     }
 }

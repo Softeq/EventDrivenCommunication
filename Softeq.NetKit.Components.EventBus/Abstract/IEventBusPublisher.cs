@@ -8,7 +8,7 @@ namespace Softeq.NetKit.Components.EventBus.Abstract
 {
     public interface IEventBusPublisher
     {
-        Task PublishToTopicAsync(IntegrationEventEnvelope @event);
-        Task PublishToQueueAsync(IntegrationEventEnvelope @event);
+        Task PublishToTopicAsync(IntegrationEventEnvelope eventEnvelope);
+        Task PublishToQueueAsync(IntegrationEventEnvelope eventEnvelope);
     }
 }

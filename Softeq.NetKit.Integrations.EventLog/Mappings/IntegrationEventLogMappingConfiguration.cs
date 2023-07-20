@@ -1,7 +1,6 @@
 ﻿// Developed by Softeq Development Corporation
 // http://www.softeq.com
 
-using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -16,18 +15,17 @@ namespace Softeq.NetKit.Integrations.EventLog.Mappings
     {
         public override void Build(EntityTypeBuilder<IntegrationEventLog> builder)
         {
-            builder.Property(eventLog => eventLog.EventTypeName).IsRequired();
             builder.Property(eventLog => eventLog.EventState).HasConversion<int>().IsRequired();
             builder.HasIndex(eventLog => eventLog.EventState).IsUnique(false);
             builder.Property(eventLog => eventLog.TimesSent).IsRequired();
-            builder.OwnsOne(entity => entity.Content, ownershipBuilder =>
+            builder.OwnsOne(entity => entity.EventEnvelope, ownershipBuilder =>
                 {
                     ownershipBuilder.Property(x => x.Created).IsRequired();
                     ownershipBuilder.HasIndex(x => x.Created).IsUnique(false);
                     ownershipBuilder.Property(x => x.PublisherId).IsRequired();
                     ownershipBuilder.HasIndex(x => x.PublisherId).IsUnique(false);
-                    ownershipBuilder.Property(x => x.SessionId).IsRequired(false);
-                    ownershipBuilder.HasIndex(x => x.SessionId).IsUnique(false);
+                    ownershipBuilder.Property(x => x.SequenceId).IsRequired(false);
+                    ownershipBuilder.HasIndex(x => x.SequenceId).IsUnique(false);
                     ownershipBuilder.Property(x => x.CorrelationId).IsRequired(false);
 
                     var serializerSettings = new JsonSerializerSettings
@@ -41,11 +39,11 @@ namespace Softeq.NetKit.Integrations.EventLog.Mappings
                             json => (IntegrationEvent)JsonConvert.DeserializeObject(json, serializerSettings))
                         .IsRequired();
 
-                    // Use Content.Id as Primary Key for IntegrationEventLog table
+                    // Use EventEnvelope.Id as Primary Key for IntegrationEventLog table
                     var identityProperty = ownershipBuilder.OwnedEntityType.ClrType.GetProperties()
-                        .Single(p => p.Name == nameof(IntegrationEventLog.Content.Id));
+                        .Single(p => p.Name == nameof(IntegrationEventLog.EventEnvelope.Id));
                     var propertyType = identityProperty.PropertyType;
-                    var identityPropertyName = $"{nameof(IntegrationEventLog.Content)}_{nameof(IntegrationEventLog.Content.Id)}";
+                    var identityPropertyName = $"{nameof(IntegrationEventLog.EventEnvelope)}_{nameof(IntegrationEventLog.EventEnvelope.Id)}";
                     ownershipBuilder.Property(propertyType, identityProperty.Name).HasColumnName(identityPropertyName);
                     builder.Property(propertyType, identityPropertyName).ValueGeneratedNever();
                     builder.HasKey(identityPropertyName);

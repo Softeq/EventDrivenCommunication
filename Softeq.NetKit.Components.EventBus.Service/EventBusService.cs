@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace Softeq.NetKit.Components.EventBus.Service
 {
-    public class EventBusService : IEventBusPublisher, IEventBusSubscriber
+    public class EventBusService : IEventBusSubscriber, IEventBusPublisher
     {
         private readonly IEventBusSubscriptionsManager _subscriptionsManager;
         private readonly IServiceProvider _serviceProvider;
@@ -115,7 +115,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
         }
 
-        public async Task RegisterTopicEventAsync<TEvent>() where TEvent : IntegrationEvent
+        public async Task RegisterEventAsync<TEvent>() where TEvent : IntegrationEvent
         {
             var eventName = typeof(TEvent).Name;
             if (IsTopicSubscriptionAvailable)
@@ -145,7 +145,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
         }
 
-        public async Task RemoveTopicEventRegistrationAsync<TEvent>() where TEvent : IntegrationEvent
+        public async Task RemoveEventRegistrationAsync<TEvent>() where TEvent : IntegrationEvent
         {
             if (IsTopicSubscriptionAvailable)
             {
@@ -168,68 +168,36 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
         }
 
-        public void RegisterQueueEventAsync<TEvent>() where TEvent : IntegrationEvent
-        {
-            _subscriptionsManager.RegisterEventType<TEvent>();
-        }
-
-        public void RemoveQueueEventRegistrationAsync<TEvent>() where TEvent : IntegrationEvent
-        {
-            _subscriptionsManager.RemoveEventType<TEvent>();
-        }
-
-        public Task PublishToTopicAsync(IntegrationEventEnvelope @event)
+        public Task PublishToTopicAsync(IntegrationEventEnvelope eventEnvelope)
         {
             ValidateTopic();
-            return PublishEventAsync(@event, _topicConnection.TopicClient);
+            return PublishEventAsync(eventEnvelope, _topicConnection.TopicClient);
         }
 
-        public Task PublishToQueueAsync(IntegrationEventEnvelope @event)
+        public Task PublishToQueueAsync(IntegrationEventEnvelope eventEnvelope)
         {
             ValidateQueue();
-            return PublishEventAsync(@event, _queueConnection.QueueClient);
+            return PublishEventAsync(eventEnvelope, _queueConnection.QueueClient);
         }
 
-        private Task PublishEventAsync(IntegrationEventEnvelope integrationEventEnvelope, ISenderClient client)
+        private Task PublishEventAsync(IntegrationEventEnvelope eventEnvelope, ISenderClient client)
         {
-            //if (string.IsNullOrEmpty(integrationEventV2.PublisherId))
-            //{
-            //    integrationEventV2.PublisherId = _eventPublishConfiguration.EventPublisherId;
-            //}
-
-            var eventName = integrationEventEnvelope.Event.GetType().Name;
-            var jsonMessage = JsonConvert.SerializeObject(integrationEventEnvelope);
-            var body = Encoding.UTF8.GetBytes(jsonMessage);
+            var eventType = eventEnvelope.Event.GetType().Name;
+            var eventEnvelopeJson = JsonConvert.SerializeObject(eventEnvelope);
+            var eventEnvelopeBytes = Encoding.UTF8.GetBytes(eventEnvelopeJson);
             var message = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
-                Body = body,
-                Label = eventName,
-                CorrelationId = integrationEventEnvelope.CorrelationId,
-                SessionId = integrationEventEnvelope.SessionId
+                Body = eventEnvelopeBytes,
+                Label = eventType,
+                CorrelationId = eventEnvelope.CorrelationId,
+                SessionId = eventEnvelope.SequenceId
             };
             if (_eventPublishConfiguration.EventTimeToLive.HasValue)
             {
                 message.TimeToLive = _eventPublishConfiguration.EventTimeToLive.Value;
             }
             return client.SendAsync(message);
-        }
-
-        private async Task<bool> CheckIfRuleExists(string ruleName)
-        {
-            try
-            {
-                var rules = await _topicConnection.SubscriptionClient.GetRulesAsync();
-
-                return rules != null
-                       && rules.Any(rule =>
-                           string.Equals(rule.Name, ruleName, StringComparison.InvariantCultureIgnoreCase));
-            }
-            catch (ServiceBusException ex)
-            {
-                throw new Exceptions.ServiceBusException(
-                    $"Checking rule {ruleName} existence failed.", ex);
-            }
         }
 
         private async Task HandleReceivedMessage(
@@ -240,51 +208,55 @@ namespace Softeq.NetKit.Components.EventBus.Service
         {
             var eventName = message.Label;
             var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
-            var envelope = ParseEventEnvelopeAsync(message);
+            var envelope = (dynamic)ParseEventEnvelopeAsync(message);
             await ProcessEvent(eventName, envelope);
             await receiverClient.CompleteAsync(message.SystemProperties.LockToken);
             if (_eventPublishConfiguration.SendCompletionEvent && eventType != typeof(CompletedEvent))
             {
                 var completedEvent = new CompletedEvent(envelope.Id, envelope.PublisherId);
-                var completedEventEnvelope = new IntegrationEventEnvelope(_eventPublishConfiguration.EventPublisherId, completedEvent);
+                var completedEventEnvelope = new IntegrationEventEnvelope(
+                    completedEvent, _eventPublishConfiguration.EventPublisherId);
                 await PublishEventAsync(completedEventEnvelope, senderClient);
             }
         }
 
-        private IntegrationEventEnvelope ParseEventEnvelopeAsync(Message message)
+        private object ParseEventEnvelopeAsync(Message message)
         {
+            var envelopeBody = Encoding.UTF8.GetString(message.Body);
             var eventName = message.Label;
             var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
-            var envelopeBody = Encoding.UTF8.GetString(message.Body);
-            var envelope = (IntegrationEventEnvelope)JsonConvert.DeserializeObject(envelopeBody, eventType);
-            if (envelope == null)
+            var eventEnvelopeType = typeof(IntegrationEventEnvelope<>).MakeGenericType(eventType);
+            var genericEventEnvelope = (dynamic)JsonConvert.DeserializeObject(envelopeBody, eventEnvelopeType);
+            if (genericEventEnvelope == null)
             {
-                throw new InvalidOperationException($"Failed to parse received message '{eventName}'. Raw body: '{envelopeBody}'.");
+                throw new InvalidOperationException(
+                    $"Failed to parse received message '{eventName}'. Raw body: '{envelopeBody}'.");
             }
-            envelope.Event.Id = envelope.Id;
-            envelope.Event.Created = envelope.Created;
-            return envelope;
+            return genericEventEnvelope;
         }
 
-        private async Task ProcessEvent(string eventName, IntegrationEventEnvelope integrationEventEnvelope)
+        private async Task ProcessEvent<TEvent>(string eventName, IntegrationEventEnvelope<TEvent> eventEnvelope)
+            where TEvent : IntegrationEvent
         {
             if (!_subscriptionsManager.IsEventRegistered(eventName))
             {
                 return;
             }
 
+            var handlerType = typeof(IEventEnvelopeHandler<>).MakeGenericType(typeof(TEvent));
             using (var scope = _serviceProvider.CreateScope())
             {
-                var handlerType = typeof(IIntegrationEventHandler<>).MakeGenericType(integrationEventEnvelope.Event.GetType());
                 var handler = scope.ServiceProvider.GetRequiredService(handlerType);
-                await HandleParsedEventAsync((dynamic)handler, (dynamic)integrationEventEnvelope.Event);
+                await HandleParsedEventAsync((dynamic)handler, eventEnvelope);
             }
         }
 
-        private static async Task HandleParsedEventAsync<TEventContent>(IIntegrationEventHandler<TEventContent> handler, TEventContent content)
-            where TEventContent : IntegrationEvent
+        private static async Task HandleParsedEventAsync<TEvent>(
+            IEventEnvelopeHandler<TEvent> envelopeHandler,
+            IntegrationEventEnvelope<TEvent> eventEnvelope)
+            where TEvent : IntegrationEvent
         {
-            await handler.HandleAsync(content);
+            await envelopeHandler.HandleAsync(eventEnvelope);
         }
 
         private Task ExceptionReceivedHandler(ExceptionReceivedEventArgs exceptionReceivedEventArgs)
@@ -320,6 +292,23 @@ namespace Softeq.NetKit.Components.EventBus.Service
             if (!IsQueueAvailable)
             {
                 throw new InvalidOperationException("Queue connection is not configured");
+            }
+        }
+
+        private async Task<bool> CheckIfRuleExists(string ruleName)
+        {
+            try
+            {
+                var rules = await _topicConnection.SubscriptionClient.GetRulesAsync();
+
+                return rules != null
+                       && rules.Any(rule =>
+                           string.Equals(rule.Name, ruleName, StringComparison.InvariantCultureIgnoreCase));
+            }
+            catch (ServiceBusException ex)
+            {
+                throw new Exceptions.ServiceBusException(
+                    $"Checking rule {ruleName} existence failed.", ex);
             }
         }
     }

@@ -32,7 +32,7 @@ namespace Softeq.NetKit.Components.EventBus.Managers
             _eventTypes.Remove(typeof(TEvent));
         }
 
-        public bool IsEventRegistered<TEvent>() where TEvent : IntegrationEvent
+        private bool IsEventRegistered<TEvent>() where TEvent : IntegrationEvent
         {
             var eventName = GetEventName<TEvent>();
             return IsEventRegistered(eventName);
