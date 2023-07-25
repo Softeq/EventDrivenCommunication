@@ -13,11 +13,13 @@ namespace Softeq.NetKit.Integrations.EventLog
 
         public IntegrationEventLog(IntegrationEventEnvelope eventEnvelope)
         {
+            EventLogId = Guid.NewGuid();
             EventEnvelope = eventEnvelope ?? throw new ArgumentNullException(nameof(eventEnvelope));
             EventState = EventState.NotPublished;
             TimesSent = 0;
         }
 
+        public Guid EventLogId { get; private set; }
         public EventState EventState { get; private set; }
         public int TimesSent { get; private set; }
         public DateTimeOffset? Updated { get; private set; }

@@ -92,14 +92,14 @@ namespace Softeq.NetKit.Integrations.EventLog
             return UpdateAsync(eventLog);
         }
 
-        private Task UpdateAsync(IntegrationEventLog @event)
+        private Task UpdateAsync(IntegrationEventLog integrationEventLog)
         {
-            if (@event == null)
+            if (integrationEventLog == null)
             {
-                throw new ArgumentNullException(nameof(@event));
+                throw new ArgumentNullException(nameof(integrationEventLog));
             }
 
-            EventLogContext.IntegrationEventLogs.Update(@event);
+            EventLogContext.IntegrationEventLogs.Update(integrationEventLog);
             return EventLogContext.SaveChangesAsync();
         }
     }

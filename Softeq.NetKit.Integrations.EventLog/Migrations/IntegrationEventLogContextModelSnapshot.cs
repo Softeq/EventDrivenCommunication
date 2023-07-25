@@ -22,7 +22,8 @@ namespace Softeq.NetKit.Integrations.EventLog.Migrations
 
             modelBuilder.Entity("Softeq.NetKit.Integrations.EventLog.IntegrationEventLog", b =>
                 {
-                    b.Property<Guid>("EventEnvelope_Id");
+                    b.Property<Guid>("EventLogId")
+                        .ValueGeneratedOnAdd();
 
                     b.Property<int>("EventState");
 
@@ -30,7 +31,7 @@ namespace Softeq.NetKit.Integrations.EventLog.Migrations
 
                     b.Property<DateTimeOffset?>("Updated");
 
-                    b.HasKey("EventEnvelope_Id");
+                    b.HasKey("EventLogId");
 
                     b.HasIndex("EventState");
 
@@ -41,7 +42,7 @@ namespace Softeq.NetKit.Integrations.EventLog.Migrations
                 {
                     b.OwnsOne("Softeq.NetKit.Components.EventBus.Events.IntegrationEventEnvelope", "EventEnvelope", b1 =>
                         {
-                            b1.Property<Guid>("IntegrationEventLogEventEnvelope_Id");
+                            b1.Property<Guid>("IntegrationEventLogEventLogId");
 
                             b1.Property<string>("CorrelationId");
 
@@ -50,17 +51,19 @@ namespace Softeq.NetKit.Integrations.EventLog.Migrations
                             b1.Property<string>("Event")
                                 .IsRequired();
 
-                            b1.Property<Guid>("Id")
-                                .HasColumnName("EventEnvelope_Id");
+                            b1.Property<Guid>("Id");
 
                             b1.Property<string>("PublisherId")
                                 .IsRequired();
 
                             b1.Property<string>("SequenceId");
 
-                            b1.HasKey("IntegrationEventLogEventEnvelope_Id");
+                            b1.HasKey("IntegrationEventLogEventLogId");
 
                             b1.HasIndex("Created");
+
+                            b1.HasIndex("Id")
+                                .IsUnique();
 
                             b1.HasIndex("PublisherId");
 
@@ -70,7 +73,7 @@ namespace Softeq.NetKit.Integrations.EventLog.Migrations
 
                             b1.HasOne("Softeq.NetKit.Integrations.EventLog.IntegrationEventLog")
                                 .WithOne("EventEnvelope")
-                                .HasForeignKey("Softeq.NetKit.Components.EventBus.Events.IntegrationEventEnvelope", "IntegrationEventLogEventEnvelope_Id")
+                                .HasForeignKey("Softeq.NetKit.Components.EventBus.Events.IntegrationEventEnvelope", "IntegrationEventLogEventLogId")
                                 .OnDelete(DeleteBehavior.Cascade);
                         });
                 });
