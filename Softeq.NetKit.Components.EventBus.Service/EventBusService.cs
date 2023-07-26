@@ -207,56 +207,42 @@ namespace Softeq.NetKit.Components.EventBus.Service
             CancellationToken token)
         {
             var eventName = message.Label;
+            if (!_subscriptionsManager.IsEventRegistered(eventName))
+            {
+                // Skip processing if event type is not registered
+                return;
+            }
+
             var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
-            var envelope = (dynamic)ParseEventEnvelopeAsync(message);
-            await ProcessEvent(eventName, envelope);
+            var envelopeBody = Encoding.UTF8.GetString(message.Body);
+            var eventEnvelopeType = typeof(IntegrationEventEnvelope<>).MakeGenericType(eventType);
+            var eventEnvelope = (dynamic)JsonConvert.DeserializeObject(envelopeBody, eventEnvelopeType);
+            if (eventEnvelope == null)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to parse received message '{eventName}'. Raw body: '{envelopeBody}'.");
+            }
+
+            await ProcessEventEnvelopeAsync(eventEnvelope);
             await receiverClient.CompleteAsync(message.SystemProperties.LockToken);
             if (_eventPublishConfiguration.SendCompletionEvent && eventType != typeof(CompletedEvent))
             {
-                var completedEvent = new CompletedEvent(envelope.Id, envelope.PublisherId);
+                var completedEvent = new CompletedEvent(eventEnvelope.Id, eventEnvelope.PublisherId);
                 var completedEventEnvelope = new IntegrationEventEnvelope(
                     completedEvent, _eventPublishConfiguration.EventPublisherId);
                 await PublishEventAsync(completedEventEnvelope, senderClient);
             }
         }
 
-        private object ParseEventEnvelopeAsync(Message message)
-        {
-            var envelopeBody = Encoding.UTF8.GetString(message.Body);
-            var eventName = message.Label;
-            var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
-            var eventEnvelopeType = typeof(IntegrationEventEnvelope<>).MakeGenericType(eventType);
-            var genericEventEnvelope = (dynamic)JsonConvert.DeserializeObject(envelopeBody, eventEnvelopeType);
-            if (genericEventEnvelope == null)
-            {
-                throw new InvalidOperationException(
-                    $"Failed to parse received message '{eventName}'. Raw body: '{envelopeBody}'.");
-            }
-            return genericEventEnvelope;
-        }
-
-        private async Task ProcessEvent<TEvent>(string eventName, IntegrationEventEnvelope<TEvent> eventEnvelope)
+        private async Task ProcessEventEnvelopeAsync<TEvent>(IntegrationEventEnvelope<TEvent> eventEnvelope)
             where TEvent : IntegrationEvent
         {
-            if (!_subscriptionsManager.IsEventRegistered(eventName))
-            {
-                return;
-            }
-
             var handlerType = typeof(IEventEnvelopeHandler<>).MakeGenericType(typeof(TEvent));
             using (var scope = _serviceProvider.CreateScope())
             {
                 var handler = scope.ServiceProvider.GetRequiredService(handlerType);
-                await HandleParsedEventAsync((dynamic)handler, eventEnvelope);
+                await ((dynamic)handler).HandleAsync(eventEnvelope);
             }
-        }
-
-        private static async Task HandleParsedEventAsync<TEvent>(
-            IEventEnvelopeHandler<TEvent> envelopeHandler,
-            IntegrationEventEnvelope<TEvent> eventEnvelope)
-            where TEvent : IntegrationEvent
-        {
-            await envelopeHandler.HandleAsync(eventEnvelope);
         }
 
         private Task ExceptionReceivedHandler(ExceptionReceivedEventArgs exceptionReceivedEventArgs)

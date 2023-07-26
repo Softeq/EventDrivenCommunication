@@ -10,7 +10,7 @@ namespace Softeq.NetKit.Components.EventBus.Managers
 {
     public class EventBusSubscriptionsManager : IEventBusSubscriptionsManager
     {
-        private readonly List<Type> _eventTypes = new List<Type>();
+        private readonly HashSet<Type> _eventTypes = new HashSet<Type>();
 
         public void RegisterEventType<TEvent>() where TEvent : IntegrationEvent
         {
@@ -32,19 +32,22 @@ namespace Softeq.NetKit.Components.EventBus.Managers
             _eventTypes.Remove(typeof(TEvent));
         }
 
-        private bool IsEventRegistered<TEvent>() where TEvent : IntegrationEvent
+        public bool IsEventRegistered(Type eventType)
         {
-            var eventName = GetEventName<TEvent>();
-            return IsEventRegistered(eventName);
+            return _eventTypes.Any(x => x == eventType);
         }
 
-        public bool IsEventRegistered(string eventName) => _eventTypes.Any(x => x.Name == eventName);
-
-        public Type GetEventTypeByName(string eventName) => _eventTypes.SingleOrDefault(x => x.Name == eventName);
-
-        private static string GetEventName<TEvent>()
+        public bool IsEventRegistered(string eventName)
         {
-            return typeof(TEvent).Name;
+            return _eventTypes.Any(x => x.Name == eventName);
         }
+
+        public Type GetEventTypeByName(string eventName)
+        {
+            var eventType = _eventTypes.SingleOrDefault(x => x.Name == eventName);
+            return eventType ?? throw new ArgumentException($"Event '{eventName}' is not registered.");
+        }
+
+        private static string GetEventName<TEvent>() => typeof(TEvent).Name;
     }
 }

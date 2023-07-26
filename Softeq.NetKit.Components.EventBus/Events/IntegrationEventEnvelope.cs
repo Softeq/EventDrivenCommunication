@@ -16,7 +16,6 @@ namespace Softeq.NetKit.Components.EventBus.Events
         {
         }
 
-        // TODO: Remove
         private IntegrationEventEnvelope(
             Guid id,
             IntegrationEvent @event,
@@ -39,7 +38,6 @@ namespace Softeq.NetKit.Components.EventBus.Events
         public string CorrelationId { get; private set; }
         public IntegrationEvent Event { get; private set; }
 
-        // TODO: Remove
         public static IntegrationEventEnvelope FromEnvelope<TEvent>(IntegrationEventEnvelope<TEvent> eventEnvelope)
             where TEvent : IntegrationEvent
         {

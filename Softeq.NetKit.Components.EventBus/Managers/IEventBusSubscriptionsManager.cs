@@ -10,6 +10,7 @@ namespace Softeq.NetKit.Components.EventBus.Managers
     {
         void RegisterEventType<TEvent>() where TEvent : IntegrationEvent;
         void RemoveEventType<TEvent>() where TEvent : IntegrationEvent;
+        bool IsEventRegistered(Type eventType);
         bool IsEventRegistered(string eventName);
         Type GetEventTypeByName(string eventName);
     }
