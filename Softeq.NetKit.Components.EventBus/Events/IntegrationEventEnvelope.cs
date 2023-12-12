@@ -28,7 +28,7 @@ namespace Softeq.NetKit.Components.EventBus.Events
             PublisherId = publisherId ?? throw new ArgumentNullException(nameof(publisherId));
             Created = DateTimeOffset.UtcNow;
             SequenceId = sequenceId;
-            CorrelationId = correlationId ?? sequenceId ?? Id.ToString();
+            CorrelationId = correlationId;
         }
 
         public Guid Id { get; private set; }

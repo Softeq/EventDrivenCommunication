@@ -10,7 +10,7 @@ using Softeq.NetKit.Integrations.EventLog;
 namespace Softeq.NetKit.Integrations.EventLog.Migrations
 {
     [DbContext(typeof(IntegrationEventLogContext))]
-    [Migration("20230725151721_UpdateIntegrationEventLogStructureV2")]
+    [Migration("20231205132729_UpdateIntegrationEventLogStructureV2")]
     partial class UpdateIntegrationEventLogStructureV2
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

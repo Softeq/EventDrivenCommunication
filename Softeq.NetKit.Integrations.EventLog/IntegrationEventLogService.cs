@@ -21,10 +21,16 @@ namespace Softeq.NetKit.Integrations.EventLog
             EventLogContext = eventLogContext ?? throw new ArgumentNullException(nameof(eventLogContext));
         }
 
+        public Task CreateAsync(IntegrationEventLog eventLog)
+        {
+            EventLogContext.IntegrationEventLogs.Add(eventLog);
+            return EventLogContext.SaveChangesAsync();
+        }
+
         public async Task<IntegrationEventLog> GetAsync(Guid eventEnvelopeId)
         {
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(
-                log => log.EventEnvelope.Id == eventEnvelopeId);
+            var eventLog = await EventLogContext.IntegrationEventLogs
+                .FirstOrDefaultAsync(log => log.EventEnvelope.Id == eventEnvelopeId);
             if (eventLog == null)
             {
                 throw new EventLogNotFoundException(eventEnvelopeId);
@@ -51,12 +57,6 @@ namespace Softeq.NetKit.Integrations.EventLog
             }
 
             return EventLogContext.IntegrationEventLogs.AnyAsync(condition);
-        }
-
-        public Task CreateAsync(IntegrationEventLog eventLog)
-        {
-            EventLogContext.IntegrationEventLogs.Add(eventLog);
-            return EventLogContext.SaveChangesAsync();
         }
 
         public Task MarkAsPublishedAsync(IntegrationEventLog eventLog)
