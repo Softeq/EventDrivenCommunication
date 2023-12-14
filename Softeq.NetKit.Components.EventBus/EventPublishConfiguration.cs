@@ -18,9 +18,7 @@ namespace Softeq.NetKit.Components.EventBus
         }
 
         public string EventPublisherId { get; }
-
         public bool SendCompletionEvent { get; }
-
         public TimeSpan? EventTimeToLive { get; }
     }
 }

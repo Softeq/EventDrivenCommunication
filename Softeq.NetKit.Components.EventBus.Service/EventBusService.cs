@@ -45,7 +45,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
             _logger = loggerFactory.CreateLogger(GetType());
         }
 
-        public async Task RegisterTopicListenerAsync()
+        public async Task RegisterTopicEventListenerAsync()
         {
             ValidateSubscription();
 
@@ -76,7 +76,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
         }
 
-        public void RegisterQueueListener(QueueListenerConfiguration configuration = null)
+        public void RegisterQueueEventListener(QueueListenerConfiguration configuration = null)
         {
             ValidateQueue();
 
