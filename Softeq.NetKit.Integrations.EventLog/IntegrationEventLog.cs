@@ -9,47 +9,35 @@ namespace Softeq.NetKit.Integrations.EventLog
 {
     public class IntegrationEventLog
     {
-        private IntegrationEventLog()
-        {
-        }
+        private IntegrationEventLog() { }
 
-        public IntegrationEventLog(IntegrationEvent @event)
+        public IntegrationEventLog(IntegrationEventEnvelope eventEnvelope)
         {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
-
-            EventId = @event.Id;
-            Created = @event.CreationDate;
-            EventTypeName = @event.GetType().FullName;
+            EventLogId = Guid.NewGuid();
+            EventEnvelope = eventEnvelope ?? throw new ArgumentNullException(nameof(eventEnvelope));
             EventState = EventState.NotPublished;
-            SessionId = @event.SessionId;
-            Content = @event;
+            TimesSent = 0;
         }
 
-        public Guid EventId { get; private set; }
-        public string EventTypeName { get; private set; }
+        public Guid EventLogId { get; private set; }
         public EventState EventState { get; private set; }
         public int TimesSent { get; private set; }
-        public DateTimeOffset Created { get; private set; }
         public DateTimeOffset? Updated { get; private set; }
-        public string SessionId { get; private set; }
-        public IntegrationEvent Content { get; private set; }
+        public IntegrationEventEnvelope EventEnvelope { get; private set; }
 
         public void ChangeEventState(EventState newEventState)
         {
             switch (newEventState)
             {
                 case EventState.Published:
-                    EnsureStateTransitionAllowed(EventState.NotPublished, EventState.PublishedFailed);
+                    EnsureStateTransitionAllowed(EventState.NotPublished, EventState.Published, EventState.PublishFailed);
                     TimesSent++;
                     break;
-                case EventState.PublishedFailed:
-                    EnsureStateTransitionAllowed(EventState.Published);
+                case EventState.PublishFailed:
+                    EnsureStateTransitionAllowed(EventState.Published, EventState.PublishFailed);
                     break;
                 case EventState.Completed:
-                    EnsureStateTransitionAllowed(EventState.Published, EventState.PublishedFailed);
+                    EnsureStateTransitionAllowed(EventState.Published, EventState.PublishFailed);
                     break;
                 case EventState.NotPublished:
                 default:

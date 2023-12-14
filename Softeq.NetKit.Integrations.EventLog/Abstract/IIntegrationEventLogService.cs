@@ -1,7 +1,6 @@
 ﻿// Developed by Softeq Development Corporation
 // http://www.softeq.com
 
-using Softeq.NetKit.Components.EventBus.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
@@ -11,11 +10,12 @@ namespace Softeq.NetKit.Integrations.EventLog.Abstract
 {
     public interface IIntegrationEventLogService
     {
-        Task<IntegrationEventLog> GetAsync(Guid eventId);
+        Task<IntegrationEventLog> GetAsync(Guid eventEnvelopeId);
         Task<List<IntegrationEventLog>> GetAsync(Expression<Func<IntegrationEventLog, bool>> condition);
-        Task CreateAsync(IntegrationEvent @event);
-        Task MarkAsPublishedAsync(IntegrationEvent @event);
-        Task MarkAsPublishedFailedAsync(IntegrationEvent @event);
-        Task MarkAsCompletedAsync(Guid eventId);
+        Task<bool> AnyAsync(Expression<Func<IntegrationEventLog, bool>> condition);
+        Task CreateAsync(IntegrationEventLog eventLog);
+        Task MarkAsPublishedAsync(IntegrationEventLog eventLog);
+        Task MarkAsPublishFailedAsync(IntegrationEventLog eventLog);
+        Task MarkAsCompletedAsync(IntegrationEventLog eventLog);
     }
 }

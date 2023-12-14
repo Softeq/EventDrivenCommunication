@@ -2,8 +2,6 @@
 // http://www.softeq.com
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Softeq.NetKit.Components.EventBus.Events;
 using Softeq.NetKit.Integrations.EventLog.Abstract;
 using Softeq.NetKit.Integrations.EventLog.Exceptions;
 using System;
@@ -20,94 +18,72 @@ namespace Softeq.NetKit.Integrations.EventLog
 
         public IntegrationEventLogService(IntegrationEventLogContext eventLogContext)
         {
-            EventLogContext = eventLogContext;
+            EventLogContext = eventLogContext ?? throw new ArgumentNullException(nameof(eventLogContext));
         }
 
-        public async Task<IntegrationEventLog> GetAsync(Guid eventId)
+        public Task CreateAsync(IntegrationEventLog eventLog)
         {
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == eventId);
+            EventLogContext.IntegrationEventLogs.Add(eventLog);
+            return EventLogContext.SaveChangesAsync();
+        }
+
+        public async Task<IntegrationEventLog> GetAsync(Guid eventEnvelopeId)
+        {
+            var eventLog = await EventLogContext.IntegrationEventLogs
+                .FirstOrDefaultAsync(log => log.EventEnvelope.Id == eventEnvelopeId);
             if (eventLog == null)
             {
-                throw new EventLogNotFoundException(eventId);
+                throw new EventLogNotFoundException(eventEnvelopeId);
             }
 
             return eventLog;
         }
 
-        public async Task<List<IntegrationEventLog>> GetAsync(Expression<Func<IntegrationEventLog, bool>> condition)
+        public Task<List<IntegrationEventLog>> GetAsync(Expression<Func<IntegrationEventLog, bool>> condition)
         {
             if (condition == null)
             {
                 throw new ArgumentNullException(nameof(condition));
             }
 
-            return await EventLogContext.IntegrationEventLogs.Where(condition).ToListAsync();
+            return EventLogContext.IntegrationEventLogs.Where(condition).ToListAsync();
         }
 
-        public Task CreateAsync(IntegrationEvent @event)
+        public Task<bool> AnyAsync(Expression<Func<IntegrationEventLog, bool>> condition)
         {
-            var eventLog = new IntegrationEventLog(@event);
-            EventLogContext.IntegrationEventLogs.Add(eventLog);
+            if (condition == null)
+            {
+                throw new ArgumentNullException(nameof(condition));
+            }
+
+            return EventLogContext.IntegrationEventLogs.AnyAsync(condition);
+        }
+
+        public Task MarkAsPublishedAsync(IntegrationEventLog eventLog)
+        {
+            return UpdateEventStateAsync(eventLog, EventState.Published);
+        }
+
+        public Task MarkAsPublishFailedAsync(IntegrationEventLog eventLog)
+        {
+            return UpdateEventStateAsync(eventLog, EventState.PublishFailed);
+        }
+
+        public Task MarkAsCompletedAsync(IntegrationEventLog eventLog)
+        {
+            return UpdateEventStateAsync(eventLog, EventState.Completed);
+        }
+
+        private Task UpdateEventStateAsync(IntegrationEventLog eventLog, EventState newState)
+        {
+            if (eventLog == null)
+            {
+                throw new ArgumentNullException(nameof(eventLog));
+            }
+
+            eventLog.ChangeEventState(newState);
+            EventLogContext.IntegrationEventLogs.Update(eventLog);
             return EventLogContext.SaveChangesAsync();
-        }
-
-        public async Task MarkAsPublishedAsync(IntegrationEvent @event)
-        {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
-
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == @event.Id);
-            if (eventLog == null)
-            {
-                throw new EventLogNotFoundException(@event.Id);
-            }
-
-            // Published event has PublisherId so need to update it also
-            eventLog.Content.PublisherId = @event.PublisherId;
-            eventLog.ChangeEventState(EventState.Published);
-            await UpdateAsync(eventLog);
-        }
-
-        public async Task MarkAsPublishedFailedAsync(IntegrationEvent @event)
-        {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
-
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == @event.Id);
-            if (eventLog == null)
-            {
-                throw new EventLogNotFoundException(@event.Id);
-            }
-
-            eventLog.ChangeEventState(EventState.PublishedFailed);
-            await UpdateAsync(eventLog);
-        }
-
-        public async Task MarkAsCompletedAsync(Guid eventId)
-        {
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == eventId);
-            if (eventLog == null)
-            {
-                throw new EventLogNotFoundException(eventId);
-            }
-
-            eventLog.ChangeEventState(EventState.Completed);
-            await UpdateAsync(eventLog);
-        }
-
-        private async Task UpdateAsync(IntegrationEventLog @event)
-        {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
-
-            EventLogContext.IntegrationEventLogs.Update(@event);
-            await EventLogContext.SaveChangesAsync();
         }
     }
 }

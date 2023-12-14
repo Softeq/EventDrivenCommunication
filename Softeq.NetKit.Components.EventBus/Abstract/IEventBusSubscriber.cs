@@ -8,22 +8,9 @@ namespace Softeq.NetKit.Components.EventBus.Abstract
 {
     public interface IEventBusSubscriber
     {
-        void RegisterQueueListener(QueueListenerConfiguration configuration = null);
-
-        Task RegisterSubscriptionListenerAsync();
-
-        Task SubscribeAsync<TEvent, TEventHandler>()
-            where TEvent : IntegrationEvent
-            where TEventHandler : IEventHandler<TEvent>;
-
-        Task UnsubscribeAsync<TEvent, TEventHandler>()
-            where TEvent : IntegrationEvent
-            where TEventHandler : IEventHandler<TEvent>;
-
-        void SubscribeDynamic<TEventHandler>(string eventName)
-            where TEventHandler : IDynamicEventHandler;
-
-        void UnsubscribeDynamic<TEventHandler>(string eventName)
-            where TEventHandler : IDynamicEventHandler;
+        Task RegisterTopicEventListenerAsync();
+        void RegisterQueueEventListener(QueueListenerConfiguration configuration = null);
+        Task RegisterEventAsync<TEvent>() where TEvent : IntegrationEvent;
+        Task RemoveEventRegistrationAsync<TEvent>() where TEvent : IntegrationEvent;
     }
 }
