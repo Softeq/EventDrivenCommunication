@@ -15,7 +15,7 @@ namespace Softeq.NetKit.Integrations.EventLog.Abstract
         Task<bool> AnyAsync(Expression<Func<IntegrationEventLog, bool>> condition);
         Task CreateAsync(IntegrationEventLog eventLog);
         Task MarkAsPublishedAsync(IntegrationEventLog eventLog);
-        Task MarkAsPublishedFailedAsync(IntegrationEventLog eventLog);
+        Task MarkAsPublishFailedAsync(IntegrationEventLog eventLog);
         Task MarkAsCompletedAsync(IntegrationEventLog eventLog);
     }
 }

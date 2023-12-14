@@ -153,7 +153,7 @@ SET Content =
                         '$.SessionId', IntegrationEventLogs.EventEnvelope_SequenceId),
                     '$.CorrelationId', IntegrationEventLogs.EventEnvelope_CorrelationId),
                 '$.PublisherId', IntegrationEventLogs.EventEnvelope_PublisherId),
-            '$.CreationDate', FORMAT(IntegrationEventLogs.EventEnvelope_Created, 'yyyy-MM-dd HH:mm:ss.fff zzz')),
+            '$.CreationDate', FORMAT(IntegrationEventLogs.EventEnvelope_Created, 'yyyy-MM-ddTHH:mm:ss.fffffff zzz')),
         '$.Id', CONVERT(nvarchar(36), IntegrationEventLogs.EventEnvelope_Id));
 ");
             migrationBuilder.DropColumn(
@@ -172,7 +172,9 @@ SET Content =
                 table: "IntegrationEventLogs",
                 nullable: false,
                 defaultValue: "");
-            //migrationBuilder.Sql("UPDATE IntegrationEventLogs SET EventTypeName = JSON_VALUE(Content, '$.type')");
+            migrationBuilder.Sql(@"
+UPDATE IntegrationEventLogs 
+SET EventTypeName = SUBSTRING(JSON_VALUE(Content, '$.""$type""'), 0, CHARINDEX(',', JSON_VALUE(Content, '$.""$type""'), 0))");
 
 
             migrationBuilder.RenameColumn(
@@ -191,11 +193,6 @@ SET Content =
                 table: "IntegrationEventLogs",
                 newName: "EventId");
 
-
-            migrationBuilder.DropColumn(
-                name: "EventTypeName",
-                schema: "dbo",
-                table: "IntegrationEventLogs");
 
             migrationBuilder.AddPrimaryKey(
                 name: "PK_IntegrationEventLogs",

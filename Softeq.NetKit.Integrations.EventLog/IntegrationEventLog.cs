@@ -30,14 +30,14 @@ namespace Softeq.NetKit.Integrations.EventLog
             switch (newEventState)
             {
                 case EventState.Published:
-                    EnsureStateTransitionAllowed(EventState.NotPublished, EventState.PublishedFailed);
+                    EnsureStateTransitionAllowed(EventState.NotPublished, EventState.Published, EventState.PublishFailed);
                     TimesSent++;
                     break;
-                case EventState.PublishedFailed:
-                    EnsureStateTransitionAllowed(EventState.Published);
+                case EventState.PublishFailed:
+                    EnsureStateTransitionAllowed(EventState.Published, EventState.PublishFailed);
                     break;
                 case EventState.Completed:
-                    EnsureStateTransitionAllowed(EventState.Published, EventState.PublishedFailed);
+                    EnsureStateTransitionAllowed(EventState.Published, EventState.PublishFailed);
                     break;
                 case EventState.NotPublished:
                 default:

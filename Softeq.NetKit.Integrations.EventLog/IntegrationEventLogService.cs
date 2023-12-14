@@ -61,45 +61,28 @@ namespace Softeq.NetKit.Integrations.EventLog
 
         public Task MarkAsPublishedAsync(IntegrationEventLog eventLog)
         {
-            if (eventLog == null)
-            {
-                throw new ArgumentNullException(nameof(eventLog));
-            }
-
-            eventLog.ChangeEventState(EventState.Published);
-            return UpdateAsync(eventLog);
+            return UpdateEventStateAsync(eventLog, EventState.Published);
         }
 
-        public Task MarkAsPublishedFailedAsync(IntegrationEventLog eventLog)
+        public Task MarkAsPublishFailedAsync(IntegrationEventLog eventLog)
         {
-            if (eventLog == null)
-            {
-                throw new ArgumentNullException(nameof(eventLog));
-            }
-
-            eventLog.ChangeEventState(EventState.PublishedFailed);
-            return UpdateAsync(eventLog);
+            return UpdateEventStateAsync(eventLog, EventState.PublishFailed);
         }
 
         public Task MarkAsCompletedAsync(IntegrationEventLog eventLog)
         {
+            return UpdateEventStateAsync(eventLog, EventState.Completed);
+        }
+
+        private Task UpdateEventStateAsync(IntegrationEventLog eventLog, EventState newState)
+        {
             if (eventLog == null)
             {
                 throw new ArgumentNullException(nameof(eventLog));
             }
 
-            eventLog.ChangeEventState(EventState.Completed);
-            return UpdateAsync(eventLog);
-        }
-
-        private Task UpdateAsync(IntegrationEventLog integrationEventLog)
-        {
-            if (integrationEventLog == null)
-            {
-                throw new ArgumentNullException(nameof(integrationEventLog));
-            }
-
-            EventLogContext.IntegrationEventLogs.Update(integrationEventLog);
+            eventLog.ChangeEventState(newState);
+            EventLogContext.IntegrationEventLogs.Update(eventLog);
             return EventLogContext.SaveChangesAsync();
         }
     }

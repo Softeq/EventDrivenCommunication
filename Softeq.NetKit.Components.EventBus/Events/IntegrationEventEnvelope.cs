@@ -37,16 +37,6 @@ namespace Softeq.NetKit.Components.EventBus.Events
         public string SequenceId { get; private set; }
         public string CorrelationId { get; private set; }
         public IntegrationEvent Event { get; private set; }
-
-        public static IntegrationEventEnvelope FromEnvelope<TEvent>(IntegrationEventEnvelope<TEvent> eventEnvelope)
-            where TEvent : IntegrationEvent
-        {
-            return new IntegrationEventEnvelope(
-                eventEnvelope.Id,
-                eventEnvelope.Event,
-                eventEnvelope.PublisherId,
-                eventEnvelope.SequenceId,
-                eventEnvelope.CorrelationId);
-        }
+        public bool IsSequential => !string.IsNullOrEmpty(SequenceId);
     }
 }
