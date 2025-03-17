@@ -7,7 +7,7 @@
     <Description></Description>
     <Authors>Softeq Development Corp.</Authors>
     <Company>Softeq Development Corp.</Company>
-    <AssemblyVersion>2.0.1.0</AssemblyVersion>
+    <AssemblyVersion>2.0.2.0</AssemblyVersion>
     <PackageId>Softeq.NetKit.EventDrivenCommunication</PackageId>
     <Product>Softeq.NetKit.EventDrivenCommunication</Product>
     <PackageProjectUrl>https://github.com/Softeq/EventDrivenCommunication</PackageProjectUrl>
