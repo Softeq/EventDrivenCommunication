@@ -86,15 +86,31 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
             return client;
         }
 
-        private static ISubscriptionClient CreateSubscriptionClient(string connectionString, string topicName, string subscriptionName)
+        private static ISubscriptionClient CreateSubscriptionClient(
+            string connectionString, 
+            string topicName, 
+            string subscriptionName)
         {
-            var client = new SubscriptionClient(connectionString, topicName, subscriptionName);
+            var client = new SubscriptionClient(
+                connectionString, 
+                topicName, 
+                subscriptionName, 
+                ReceiveMode.ReceiveAndDelete);
             return client;
         }
 
-        private static ISubscriptionClient CreateSubscriptionClient(string namespaceName, string topicName, string subscriptionName, TokenProvider tokenProvider)
+        private static ISubscriptionClient CreateSubscriptionClient(
+            string namespaceName, 
+            string topicName, 
+            string subscriptionName, 
+            ITokenProvider tokenProvider)
         {
-            var client = new SubscriptionClient(namespaceName, topicName, subscriptionName, tokenProvider);
+            var client = new SubscriptionClient(
+                namespaceName, 
+                topicName, 
+                subscriptionName, 
+                tokenProvider, 
+                receiveMode: ReceiveMode.ReceiveAndDelete);
             return client;
         }
     }

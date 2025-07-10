@@ -12,6 +12,7 @@ namespace Softeq.NetKit.Integrations.EventLog
     /// To use this factory
     /// 1. Set current project as startup project
     /// 2. Edit project file: change the project TargetFramework to, for example, <TargetFramework>netcoreapp3.1</TargetFramework>
+    /// 2.1. Ensure project successfully builds. If not - change target framework to for failed projects to fix
     /// 3. Open Package Manager Console. Set current project as the default project
     /// 4. Create migration by running command: add-migration migration_name -context IntegrationEventLogContext
     /// </summary>

@@ -1,8 +1,8 @@
 ﻿// Developed by Softeq Development Corporation
 // http://www.softeq.com
 
+using EnsureThat;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Softeq.NetKit.Components.EventBus.Events;
 using Softeq.NetKit.Integrations.EventLog.Abstract;
 using Softeq.NetKit.Integrations.EventLog.Exceptions;
@@ -16,98 +16,161 @@ namespace Softeq.NetKit.Integrations.EventLog
 {
     public class IntegrationEventLogService : IIntegrationEventLogService
     {
-        protected IntegrationEventLogContext EventLogContext;
+        private readonly Func<IntegrationEventLogContext> _dbContextFactory;
 
-        public IntegrationEventLogService(IntegrationEventLogContext eventLogContext)
+        protected IntegrationEventLogContext DbContext => _dbContextFactory.Invoke();
+
+        public IntegrationEventLogService(Func<IntegrationEventLogContext> dbContextFactory)
         {
-            EventLogContext = eventLogContext;
+            _dbContextFactory = Ensure.Any.IsNotNull(dbContextFactory, nameof(dbContextFactory));
         }
 
         public async Task<IntegrationEventLog> GetAsync(Guid eventId)
         {
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == eventId);
+            Ensure.Guid.IsNotEmpty(eventId, nameof(eventId));
+
+            var eventLog = await DbContext
+                .IntegrationEventLogs
+                .FirstOrDefaultAsync(log => log.EventId == eventId);
             if (eventLog == null)
             {
                 throw new EventLogNotFoundException(eventId);
             }
-
             return eventLog;
         }
 
-        public async Task<List<IntegrationEventLog>> GetAsync(Expression<Func<IntegrationEventLog, bool>> condition)
+        public Task<List<IntegrationEventLog>> GetAsync(Expression<Func<IntegrationEventLog, bool>> condition)
         {
-            if (condition == null)
-            {
-                throw new ArgumentNullException(nameof(condition));
-            }
+            Ensure.Any.IsNotNull(condition, nameof(condition));
 
-            return await EventLogContext.IntegrationEventLogs.Where(condition).ToListAsync();
+            return DbContext.IntegrationEventLogs.Where(condition).ToListAsync();
         }
 
-        public Task CreateAsync(IntegrationEvent @event)
+        public async Task<List<IntegrationEventLog>> GetAsync(
+            Expression<Func<IntegrationEventLog, bool>> condition,
+            Expression<Func<IntegrationEventLog, object>> orderByProperty,
+            SortOrder sortOrder = SortOrder.Ascending,
+            int takeCount = 100,
+            bool asNoTracking = true)
         {
+            Ensure.Any.IsNotNull(condition, nameof(condition));
+            Ensure.Any.IsNotNull(orderByProperty, nameof(orderByProperty));
+            Ensure.Comparable.IsGt(takeCount, 0, nameof(takeCount));
+
+            IQueryable<IntegrationEventLog> query = DbContext.IntegrationEventLogs;
+
+            if (asNoTracking)
+            {
+                query = query.AsNoTracking();
+            }
+
+            query = query.Where(condition);
+
+            query = sortOrder == SortOrder.Ascending
+                ? query.OrderBy(orderByProperty)
+                : query.OrderByDescending(orderByProperty);
+
+            if (takeCount > 0)
+            {
+                query = query.Take(takeCount);
+            }
+
+            return await query.ToListAsync();
+        }
+
+        public Task<bool> AnyAsync(Expression<Func<IntegrationEventLog, bool>> condition)
+        {
+            Ensure.Any.IsNotNull(condition, nameof(condition));
+
+            return DbContext.IntegrationEventLogs.AnyAsync(condition);
+        }
+
+        public async Task<IntegrationEventLog> CreateAsync(IntegrationEvent @event)
+        {
+            Ensure.Any.IsNotNull(@event, nameof(@event));
+
             var eventLog = new IntegrationEventLog(@event);
-            EventLogContext.IntegrationEventLogs.Add(eventLog);
-            return EventLogContext.SaveChangesAsync();
+            DbContext.IntegrationEventLogs.Add(eventLog);
+            await DbContext.SaveChangesAsync();
+            return eventLog;
         }
 
-        public async Task MarkAsPublishedAsync(IntegrationEvent @event)
+        public async Task<IntegrationEventLog> MarkAsPublishedAsync(Guid eventId, string publisherId)
         {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
+            Ensure.Guid.IsNotEmpty(eventId, nameof(eventId));
+            Ensure.String.IsNotNullOrEmpty(publisherId, nameof(publisherId));
 
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == @event.Id);
+            var eventLog = await DbContext
+                .IntegrationEventLogs
+                .FirstOrDefaultAsync(log => log.EventId == eventId);
             if (eventLog == null)
             {
-                throw new EventLogNotFoundException(@event.Id);
+                throw new EventLogNotFoundException(eventId);
             }
-
-            // Published event has PublisherId so need to update it also
-            eventLog.Content.PublisherId = @event.PublisherId;
-            eventLog.ChangeEventState(EventState.Published);
+            eventLog.MarkAsPublished(publisherId);
             await UpdateAsync(eventLog);
+            return eventLog;
         }
 
-        public async Task MarkAsPublishedFailedAsync(IntegrationEvent @event)
+        public async Task<IntegrationEventLog> MarkAsPublishAcknowledgmentTimeoutAsync(Guid eventId)
         {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
+            Ensure.Guid.IsNotEmpty(eventId, nameof(eventId));
 
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == @event.Id);
+            var eventLog = await DbContext
+                .IntegrationEventLogs
+                .FirstOrDefaultAsync(log => log.EventId == eventId);
             if (eventLog == null)
             {
-                throw new EventLogNotFoundException(@event.Id);
+                throw new EventLogNotFoundException(eventId);
             }
-
-            eventLog.ChangeEventState(EventState.PublishedFailed);
+            eventLog.MarkAsPublishAcknowledgmentTimeout();
             await UpdateAsync(eventLog);
+            return eventLog;
         }
 
-        public async Task MarkAsCompletedAsync(Guid eventId)
+        public async Task<IntegrationEventLog> MarkAsCompletedAsync(Guid eventId)
         {
-            var eventLog = await EventLogContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == eventId);
+            Ensure.Guid.IsNotEmpty(eventId, nameof(eventId));
+
+            var eventLog = await DbContext
+                .IntegrationEventLogs
+                .FirstOrDefaultAsync(log => log.EventId == eventId);
+            if (eventLog == null)
+            {
+                throw new EventLogNotFoundException(eventId);
+            }
+            eventLog.MarkAsCompleted();
+            await UpdateAsync(eventLog);
+            return eventLog;
+        }
+
+        public async Task DeleteAsync(Guid eventId)
+        {
+            Ensure.Guid.IsNotEmpty(eventId, nameof(eventId));
+
+            var eventLog = await DbContext.IntegrationEventLogs.FirstOrDefaultAsync(log => log.EventId == eventId);
             if (eventLog == null)
             {
                 throw new EventLogNotFoundException(eventId);
             }
 
-            eventLog.ChangeEventState(EventState.Completed);
-            await UpdateAsync(eventLog);
+            DbContext.IntegrationEventLogs.Remove(eventLog);
+            await DbContext.SaveChangesAsync();
+        }
+
+        public async Task DeleteAsync(Expression<Func<IntegrationEventLog, bool>> condition)
+        {
+            Ensure.Any.IsNotNull(condition, nameof(condition));
+
+            var eventLogsToDelete = await DbContext.IntegrationEventLogs.Where(condition).ToListAsync();
+            DbContext.IntegrationEventLogs.RemoveRange(eventLogsToDelete);
+            await DbContext.SaveChangesAsync();
         }
 
         private async Task UpdateAsync(IntegrationEventLog @event)
         {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
-
-            EventLogContext.IntegrationEventLogs.Update(@event);
-            await EventLogContext.SaveChangesAsync();
+            DbContext.IntegrationEventLogs.Update(@event);
+            await DbContext.SaveChangesAsync();
         }
     }
 }

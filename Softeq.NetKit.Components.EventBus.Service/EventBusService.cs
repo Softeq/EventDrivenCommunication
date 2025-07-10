@@ -14,8 +14,10 @@ using Softeq.NetKit.Components.EventBus.Service.Connection;
 using System;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
+using Polly;
+using Polly.Contrib.WaitAndRetry;
+using Polly.Retry;
 
 namespace Softeq.NetKit.Components.EventBus.Service
 {
@@ -28,6 +30,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
         private readonly ServiceBusQueueConnection _queueConnection;
         private readonly ILogger _logger;
         private readonly EventPublishConfiguration _eventPublishConfiguration;
+        private readonly AsyncRetryPolicy _publishMessageRetryPolicy;
 
         private bool IsSubscriptionAvailable => _topicConnection?.SubscriptionClient != null;
         private bool IsQueueAvailable => _queueConnection != null;
@@ -47,6 +50,9 @@ namespace Softeq.NetKit.Components.EventBus.Service
             _messageQueueConfiguration = messageQueueConfiguration;
             _eventPublishConfiguration = eventPublishConfiguration;
             _logger = loggerFactory.CreateLogger(GetType());
+            _publishMessageRetryPolicy = Policy
+                .Handle<ServiceBusException>(ex => ex.IsTransient)
+                .WaitAndRetryAsync(sleepDurations: Backoff.ExponentialBackoff(TimeSpan.FromSeconds(1), 3));
         }
 
         public Task PublishToTopicAsync(IntegrationEvent @event, int? delayInSeconds = null)
@@ -108,12 +114,11 @@ namespace Softeq.NetKit.Components.EventBus.Service
             await RemoveDefaultRuleIfExists();
 
             _topicConnection.SubscriptionClient.RegisterMessageHandler(
-                async (message, token) => await HandleReceivedMessage(
-                    _topicConnection.SubscriptionClient,
-                    _topicConnection.TopicClient,
-                    message,
-                    token),
-                new MessageHandlerOptions(ExceptionReceivedHandler) { MaxConcurrentCalls = 10, AutoComplete = false });
+                async (message, token) => await HandleReceivedMessage(_topicConnection.TopicClient, message),
+                new MessageHandlerOptions(ExceptionReceivedHandler)
+                {
+                    MaxConcurrentCalls = 10
+                });
 
             async Task RemoveDefaultRuleIfExists()
             {
@@ -145,45 +150,39 @@ namespace Softeq.NetKit.Components.EventBus.Service
                     MaxConcurrentSessions = configuration.MaxConcurrent
                 };
                 _queueConnection.QueueClient.RegisterSessionHandler(
-                    async (session, message, token) =>
-                        await HandleReceivedMessage(
-                            session,
-                            _topicConnection.TopicClient,
-                            message,
-                            token),
+                    async (session, message, token) => await HandleReceivedMessage(_topicConnection.TopicClient, message),
                     handlerOptions);
             }
             else
             {
                 var handlerOptions = new MessageHandlerOptions(ExceptionReceivedHandler)
                 {
-                    MaxConcurrentCalls = configuration?.MaxConcurrent ?? 1,
-                    AutoComplete = false
+                    MaxConcurrentCalls = configuration?.MaxConcurrent ?? 1
                 };
 
                 _queueConnection.QueueClient.RegisterMessageHandler(
-                    async (message, token) =>
-                        await HandleReceivedMessage(
-                            _queueConnection.QueueClient,
-                            _queueConnection.QueueClient,
-                            message,
-                            token),
+                    async (message, token) => await HandleReceivedMessage(_queueConnection.QueueClient, message),
                     handlerOptions);
             }
         }
 
-        private static Task PublishMessageAsync(Message message, ISenderClient client, int? delayInSeconds = null)
-        {
-            return delayInSeconds.HasValue
-                ? client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value))
-                : client.SendAsync(message);
-        }
-
         private Task PublishEventAsync(IntegrationEvent @event, ISenderClient client, int? delayInSeconds = null)
         {
-            var message = GetMessageForPublish(@event);
+            return PublishMessageAsync(() => GetMessageForPublish(@event), client, delayInSeconds);
+        }
 
-            return PublishMessageAsync(message, client, delayInSeconds);
+        private Task PublishMessageAsync(
+            Func<Message> messageFactory, 
+            ISenderClient client, 
+            int? delayInSeconds = null)
+        {
+            return _publishMessageRetryPolicy.ExecuteAsync(() =>
+            {
+                var message = messageFactory();
+                return delayInSeconds.HasValue
+                        ? client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value))
+                        : client.SendAsync(message);
+            });
         }
 
         private async Task<bool> CheckIfRuleExists(string ruleName)
@@ -237,39 +236,32 @@ namespace Softeq.NetKit.Components.EventBus.Service
         }
 
         private async Task HandleReceivedMessage(
-            IReceiverClient receiverClient,
             ISenderClient senderClient,
-            Message message,
-            CancellationToken token)
+            Message message)
         {
             var eventName = message.Label;
             var messageData = Encoding.UTF8.GetString(message.Body);
-            await ProcessEvent(eventName, messageData);
 
-            // Complete the message so that it is not received again.
-            await receiverClient.CompleteAsync(message.SystemProperties.LockToken);
+            await ProcessEventAsync(eventName, messageData);
 
-            if (!_eventPublishConfiguration.SendCompletionEvent)
+            if (_eventPublishConfiguration.SendCompletionEvent)
             {
-                return;
-            }
-
-            var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
-            if (eventType == null || eventType == typeof(CompletedEvent))
-            {
-                return;
-            }
-
-            var eventData = JObject.Parse(messageData);
-            if (Guid.TryParse((string)eventData["Id"], out var eventId))
-            {
-                var publisherId = (string)eventData["PublisherId"];
-                var completedEvent = new CompletedEvent(eventId, publisherId);
-                await PublishEventAsync(completedEvent, senderClient);
+                var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
+                if (eventType != null
+                    && eventType != typeof(CompletedEvent))
+                {
+                    var eventData = JObject.Parse(messageData);
+                    if (Guid.TryParse((string)eventData["Id"], out var eventId))
+                    {
+                        var publisherId = (string)eventData["PublisherId"];
+                        var completedEvent = new CompletedEvent(eventId, publisherId);
+                        await PublishEventAsync(completedEvent, senderClient);
+                    }
+                }
             }
         }
 
-        private async Task ProcessEvent(string eventName, string message)
+        private async Task ProcessEventAsync(string eventName, string messageBody)
         {
             if (!_subscriptionsManager.HasSubscriptionsForEvent(eventName))
             {
@@ -285,15 +277,17 @@ namespace Softeq.NetKit.Components.EventBus.Service
 
                     if (subscription.IsDynamic && handler is IDynamicEventHandler eventHandler)
                     {
-                        dynamic eventData = JObject.Parse(message);
+                        dynamic eventData = JObject.Parse(messageBody);
                         await eventHandler.Handle(eventData);
                     }
                     else if (handler != null)
                     {
                         var eventType = _subscriptionsManager.GetEventTypeByName(eventName);
-                        var integrationEvent = JsonConvert.DeserializeObject(message, eventType);
+                        var integrationEvent = JsonConvert.DeserializeObject(messageBody, eventType);
                         var concreteType = typeof(IEventHandler<>).MakeGenericType(eventType);
-                        await (Task)concreteType.GetMethod(nameof(IEventHandler<IntegrationEvent>.Handle)).Invoke(handler, new[] { integrationEvent });
+                        await (Task)concreteType
+                            .GetMethod(nameof(IEventHandler<IntegrationEvent>.Handle))
+                            .Invoke(handler, new[] { integrationEvent });
                     }
                 }
             }
@@ -313,11 +307,9 @@ namespace Softeq.NetKit.Components.EventBus.Service
 
         private Message GetMessageForPublish(IntegrationEvent @event)
         {
-            @event.PublisherId = _eventPublishConfiguration.EventPublisherId;
             var eventName = @event.GetType().Name;
             var jsonMessage = JsonConvert.SerializeObject(@event);
             var body = Encoding.UTF8.GetBytes(jsonMessage);
-
             var message = new Message
             {
                 MessageId = Guid.NewGuid().ToString(),
@@ -326,12 +318,10 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 CorrelationId = @event.CorrelationId,
                 SessionId = @event.SessionId
             };
-
             if (_messageQueueConfiguration.TimeToLiveInMinutes.HasValue)
             {
                 message.TimeToLive = TimeSpan.FromMinutes(_messageQueueConfiguration.TimeToLiveInMinutes.Value);
             }
-
             return message;
         }
 
