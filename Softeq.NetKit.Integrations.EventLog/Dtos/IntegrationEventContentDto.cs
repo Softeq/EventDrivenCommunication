@@ -21,5 +21,10 @@ namespace Softeq.NetKit.Integrations.EventLog.Dtos
         /// The JSON string representation of the event.
         /// </summary>
         public string EventJsonString { get; set; }
+
+        /// <summary>
+        /// The date and time when the entity was created.
+        /// </summary>
+        public DateTimeOffset Created { get; set; }
     }
 }

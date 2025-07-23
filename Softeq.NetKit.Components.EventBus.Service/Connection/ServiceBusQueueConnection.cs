@@ -52,7 +52,7 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
 
         private static IQueueClient CreateClient(string connectionString, string queueName)
         {
-            var client = new QueueClient(connectionString, queueName, ReceiveMode.ReceiveAndDelete, RetryPolicy.Default);
+            var client = new QueueClient(connectionString, queueName, ReceiveMode.PeekLock, RetryPolicy.Default);
             return client;
         }
 
@@ -61,7 +61,7 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
             var sbNamespace = $"sb://{namespaceName}.servicebus.windows.net/";
             var provider = tokenProvider ?? TokenProvider.CreateManagedIdentityTokenProvider();
 
-            var client = new QueueClient(sbNamespace, queueName, provider, receiveMode: ReceiveMode.ReceiveAndDelete);
+            var client = new QueueClient(sbNamespace, queueName, provider, receiveMode: ReceiveMode.PeekLock);
             return client;
         }
     }

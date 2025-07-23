@@ -13,6 +13,7 @@ using System.Data.Common;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Softeq.NetKit.Integrations.EventLog.Dtos;
 using SortOrder = Softeq.NetKit.Integrations.EventLog.Dtos.SortOrder;
@@ -56,11 +57,15 @@ namespace Softeq.NetKit.Integrations.EventLog
         /// <inheritdoc />
         public Task<List<IntegrationEventContentDto>> GetEventContentListAsync(
             List<EventState> eventStates,
+            DateTimeOffset createdUntil,
             SortOrder createdDateOrder = SortOrder.Ascending,
-            int takeCount = 100)
+            int skipCount = 0,
+            int takeCount = 100,
+            CancellationToken cancellationToken = default)
         {
             Ensure.Any.IsNotNull(eventStates, nameof(eventStates));
             Ensure.Collection.HasItems(eventStates, nameof(eventStates));
+            Ensure.Comparable.IsGte(skipCount, 0, nameof(skipCount));
             Ensure.Comparable.IsGt(takeCount, 0, nameof(takeCount));
 
             var stateParamNames = eventStates.Select((_, i) => $"@state{i}").ToList();
@@ -68,17 +73,21 @@ namespace Softeq.NetKit.Integrations.EventLog
             var orderClause = createdDateOrder == SortOrder.Ascending ? "ASC" : "DESC";
 
             var sql = $@"
-                SELECT TOP (@takeCount) [EventId], [EventTypeName], [Content]
+                SELECT [EventId], [EventTypeName], [Content], [Created]
                 FROM [IntegrationEventLogs]
-                WHERE [EventState] IN ({eventStateInClause})
-                ORDER BY [Created] {orderClause}";
+                WHERE [EventState] IN ({eventStateInClause}) AND [Created] <= @createdUntil
+                ORDER BY [Created] {orderClause}
+                OFFSET @skipCount ROWS
+                FETCH NEXT @takeCount ROWS ONLY;";
 
             var parameters = new List<DbParameter>
             {
-                new SqlParameter("@takeCount", SqlDbType.Int) { Value = takeCount }
+                new SqlParameter("@skipCount", SqlDbType.Int) { Value = skipCount },
+                new SqlParameter("@takeCount", SqlDbType.Int) { Value = takeCount },
+                new SqlParameter("@createdUntil", SqlDbType.DateTimeOffset) { Value = createdUntil }
             };
-            parameters
-                .AddRange(eventStates
+            parameters.AddRange(
+                eventStates
                     .Select((state, i) => new SqlParameter($"@state{i}", SqlDbType.Int)
                     {
                         Value = (int)state
@@ -88,15 +97,16 @@ namespace Softeq.NetKit.Integrations.EventLog
             {
                 var result = new List<IntegrationEventContentDto>();
 
-                using (var reader = await command.ExecuteReaderAsync())
+                using (var reader = await command.ExecuteReaderAsync(cancellationToken))
                 {
-                    while (await reader.ReadAsync())
+                    while (await reader.ReadAsync(cancellationToken))
                     {
                         result.Add(new IntegrationEventContentDto
                         {
                             EventId = reader.GetGuid(0),
                             EventTypeName = reader.GetString(1),
-                            EventJsonString = reader.GetString(2)
+                            EventJsonString = reader.GetString(2),
+                            Created = reader.GetFieldValue<DateTimeOffset>(3)
                         });
                     }
                 }
@@ -178,7 +188,7 @@ namespace Softeq.NetKit.Integrations.EventLog
         }
 
         /// <inheritdoc />
-        public async Task DeleteAsync(List<Guid> eventIds)
+        public async Task DeleteAsync(IReadOnlyCollection<Guid> eventIds)
         {
             Ensure.Collection.HasItems(eventIds, nameof(eventIds));
 

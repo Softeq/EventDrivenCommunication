@@ -95,7 +95,7 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
                 connectionString, 
                 topicName, 
                 subscriptionName, 
-                ReceiveMode.ReceiveAndDelete);
+                ReceiveMode.PeekLock);
             return client;
         }
 
@@ -110,7 +110,7 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
                 topicName, 
                 subscriptionName, 
                 tokenProvider, 
-                receiveMode: ReceiveMode.ReceiveAndDelete);
+                receiveMode: ReceiveMode.PeekLock);
             return client;
         }
     }

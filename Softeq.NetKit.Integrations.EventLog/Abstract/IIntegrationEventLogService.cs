@@ -5,6 +5,7 @@ using Softeq.NetKit.Components.EventBus.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Softeq.NetKit.Integrations.EventLog.Dtos;
 
@@ -28,14 +29,19 @@ namespace Softeq.NetKit.Integrations.EventLog.Abstract
         /// Returns a list of raw event contents filtered by the specified event states.
         /// It's important to return raw contents to avoid deserialization issues caused by event type changes.
         /// </summary>
+        /// <param name="createdUntil">The date until which need to fetch events.</param>
         /// <param name="eventStates">Event states.</param>
         /// <param name="createdDateOrder">Creation date order.</param>
+        /// <param name="skipCount">Count of events to skip.</param>
         /// <param name="takeCount">Max results count.</param>
         /// <returns>List of raw event contents.</returns>
         Task<List<IntegrationEventContentDto>> GetEventContentListAsync(
             List<EventState> eventStates,
+            DateTimeOffset createdUntil,
             SortOrder createdDateOrder = SortOrder.Ascending,
-            int takeCount = 100);
+            int skipCount = 0,
+            int takeCount = 100,
+            CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Returns a boolean value indicating whether an event log matching the specified conditions exists.
@@ -72,6 +78,6 @@ namespace Softeq.NetKit.Integrations.EventLog.Abstract
         /// Deletes event logs by their IDs.
         /// </summary>
         /// <param name="eventIds">IDs of events to delete.</param>
-        Task DeleteAsync(List<Guid> eventIds);
+        Task DeleteAsync(IReadOnlyCollection<Guid> eventIds);
     }
 }

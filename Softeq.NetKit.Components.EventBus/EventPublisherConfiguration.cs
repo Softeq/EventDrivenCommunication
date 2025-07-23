@@ -1,18 +1,21 @@
 ﻿// Developed by Softeq Development Corporation
 // http://www.softeq.com
 
+using System;
 using EnsureThat;
 
 namespace Softeq.NetKit.Components.EventBus
 {
-    public class EventPublishConfiguration
+    public class EventPublisherConfiguration
     {
-        public EventPublishConfiguration(
+        public EventPublisherConfiguration(
             string eventPublisherId,
-            bool sendCompletionEvent = true)
+            bool sendCompletionEvent = true,
+            TimeSpan? messageTimeToLeave = null)
         {
             EventPublisherId = Ensure.String.IsNotNullOrEmpty(eventPublisherId, nameof(eventPublisherId));
             SendCompletionEvent = sendCompletionEvent;
+            MessageTimeToLeave = messageTimeToLeave;
         }
 
         /// <summary>
@@ -26,5 +29,10 @@ namespace Softeq.NetKit.Components.EventBus
         /// after the processing of the original event is finished.
         /// </summary>
         public bool SendCompletionEvent { get; }
+
+        /// <summary>
+        /// TTL of the message in the message queue or topic.
+        /// </summary>
+        public TimeSpan? MessageTimeToLeave { get; set; }
     }
 }
