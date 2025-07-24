@@ -72,6 +72,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             var eventStateInClause = string.Join(", ", stateParamNames);
             var orderClause = createdDateOrder == SortOrder.Ascending ? "ASC" : "DESC";
 
+            // Raw SQL is used instead of EF Core LINQ to avoid deserialization issues for old events
             var sql = $@"
                 SELECT [EventId], [EventTypeName], [Content], [Created]
                 FROM [IntegrationEventLogs]
@@ -195,6 +196,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             var idParamNames = eventIds.Select((_, i) => $"@id{i}").ToList();
             var eventIdInClause = string.Join(", ", idParamNames);
 
+            // Raw SQL is used instead of EF Core LINQ to avoid deserialization issues for old events
             var sql = $@"
                 DELETE FROM [IntegrationEventLogs] 
                 WHERE [EventId] IN ({eventIdInClause})";

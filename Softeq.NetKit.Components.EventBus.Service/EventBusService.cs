@@ -351,9 +351,9 @@ namespace Softeq.NetKit.Components.EventBus.Service
                 CorrelationId = @event.CorrelationId,
                 SessionId = @event.SessionId
             };
-            if (_eventPublisherConfiguration.MessageTimeToLeave.HasValue)
+            if (_eventPublisherConfiguration.MessageTimeToLive.HasValue)
             {
-                message.TimeToLive = _eventPublisherConfiguration.MessageTimeToLeave.Value;
+                message.TimeToLive = _eventPublisherConfiguration.MessageTimeToLive.Value;
             }
             return message;
         }

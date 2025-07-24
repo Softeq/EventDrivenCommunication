@@ -11,11 +11,11 @@ namespace Softeq.NetKit.Components.EventBus
         public EventPublisherConfiguration(
             string eventPublisherId,
             bool sendCompletionEvent = true,
-            TimeSpan? messageTimeToLeave = null)
+            TimeSpan? messageTimeToLive = null)
         {
             EventPublisherId = Ensure.String.IsNotNullOrEmpty(eventPublisherId, nameof(eventPublisherId));
             SendCompletionEvent = sendCompletionEvent;
-            MessageTimeToLeave = messageTimeToLeave;
+            MessageTimeToLive = messageTimeToLive;
         }
 
         /// <summary>
@@ -33,6 +33,6 @@ namespace Softeq.NetKit.Components.EventBus
         /// <summary>
         /// TTL of the message in the message queue or topic.
         /// </summary>
-        public TimeSpan? MessageTimeToLeave { get; set; }
+        public TimeSpan? MessageTimeToLive { get; set; }
     }
 }
