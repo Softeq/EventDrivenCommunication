@@ -1,14 +1,19 @@
-﻿namespace Softeq.NetKit.Components.EventBus
+﻿// Developed by Softeq Development Corporation
+// http://www.softeq.com
+
+using EnsureThat;
+
+namespace Softeq.NetKit.Components.EventBus
 {
     public class QueueListenerConfiguration
     {
-        public QueueListenerConfiguration()
+        public QueueListenerConfiguration(bool useSessions, int maxConcurrent)
         {
-            MaxConcurrent = 10;
-            UseSessions = false;
+            UseSessions = useSessions;
+            MaxConcurrent = Ensure.Comparable.IsGt(maxConcurrent, 0, nameof(maxConcurrent));
         }
 
-        public int MaxConcurrent { get; set; }
-        public bool UseSessions { get; set; }
+        public bool UseSessions { get; }
+        public int MaxConcurrent { get; }
     }
 }

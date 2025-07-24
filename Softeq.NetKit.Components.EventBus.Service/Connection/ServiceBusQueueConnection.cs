@@ -61,7 +61,7 @@ namespace Softeq.NetKit.Components.EventBus.Service.Connection
             var sbNamespace = $"sb://{namespaceName}.servicebus.windows.net/";
             var provider = tokenProvider ?? TokenProvider.CreateManagedIdentityTokenProvider();
 
-            var client = new QueueClient(sbNamespace, queueName, provider);
+            var client = new QueueClient(sbNamespace, queueName, provider, receiveMode: ReceiveMode.PeekLock);
             return client;
         }
     }

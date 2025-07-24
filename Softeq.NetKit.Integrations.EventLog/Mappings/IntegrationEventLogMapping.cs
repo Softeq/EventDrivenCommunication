@@ -14,17 +14,17 @@ namespace Softeq.NetKit.Integrations.EventLog.Mappings
         public override void Build(EntityTypeBuilder<IntegrationEventLog> builder)
         {
             builder.HasKey(eventLog => eventLog.EventId);
-            builder.Property(eventLog => eventLog.EventId).IsRequired();
+            builder.Property(eventLog => eventLog.EventId).ValueGeneratedNever().IsRequired();
 
             builder.Property(eventLog => eventLog.Created).IsRequired();
             builder.HasIndex(eventLog => eventLog.Created).IsUnique(false);
 
+            // TODO: Get rid of EventLog properties serialization within Content object
             var serializerSettings = new JsonSerializerSettings
             {
                 TypeNameHandling = TypeNameHandling.All,
                 ContractResolver = new PrivateFieldContractResolver()
             };
-            // TODO: Get rid of EventLog properties serialization within Content object
             builder.Property(eventLog => eventLog.Content)
                 .HasConversion(
                     integrationEvent => JsonConvert.SerializeObject(integrationEvent, serializerSettings),

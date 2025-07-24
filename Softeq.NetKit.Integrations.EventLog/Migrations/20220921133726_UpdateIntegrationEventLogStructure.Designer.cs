@@ -24,8 +24,7 @@ namespace Softeq.NetKit.Integrations.EventLog.Migrations
 
             modelBuilder.Entity("Softeq.NetKit.Integrations.EventLog.IntegrationEventLog", b =>
                 {
-                    b.Property<Guid>("EventId")
-                        .ValueGeneratedOnAdd();
+                    b.Property<Guid>("EventId");
 
                     b.Property<string>("Content")
                         .IsRequired();

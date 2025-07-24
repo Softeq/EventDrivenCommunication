@@ -1,29 +1,29 @@
 ﻿// Developed by Softeq Development Corporation
 // http://www.softeq.com
 
-using System;
-using System.Linq;
 using Softeq.NetKit.Components.EventBus.Events;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using EnsureThat;
 
 namespace Softeq.NetKit.Integrations.EventLog
 {
     public class IntegrationEventLog
     {
-        private IntegrationEventLog()
+        private IntegrationEventLog(string sessionId)
         {
+            SessionId = sessionId;
         }
 
         public IntegrationEventLog(IntegrationEvent @event)
         {
-            if (@event == null)
-            {
-                throw new ArgumentNullException(nameof(@event));
-            }
+            Ensure.Any.IsNotNull(@event, nameof(@event));
 
             EventId = @event.Id;
-            Created = @event.CreationDate;
             EventTypeName = @event.GetType().FullName;
             EventState = EventState.NotPublished;
+            Created = @event.CreationDate;
             SessionId = @event.SessionId;
             Content = @event;
         }
@@ -37,43 +37,90 @@ namespace Softeq.NetKit.Integrations.EventLog
         public string SessionId { get; private set; }
         public IntegrationEvent Content { get; private set; }
 
-        public void ChangeEventState(EventState newEventState)
+        public void MarkAsPublished(string publisherId)
         {
-            switch (newEventState)
+            const EventState newEventState = EventState.Published;
+
+            if (EventState == newEventState)
             {
-                case EventState.Published:
-                    EnsureStateTransitionAllowed(EventState.NotPublished, EventState.PublishedFailed);
-                    TimesSent++;
-                    break;
-                case EventState.PublishedFailed:
-                    EnsureStateTransitionAllowed(EventState.Published);
-                    break;
-                case EventState.Completed:
-                    EnsureStateTransitionAllowed(EventState.Published, EventState.PublishedFailed);
-                    break;
-                case EventState.NotPublished:
-                default:
-                    EnsureStateTransitionAllowed();
-                    break;
+                return;
             }
+
+            EnsureStateTransitionAllowed(newEventState);
 
             EventState = newEventState;
             Updated = DateTimeOffset.UtcNow;
+            Content.PublisherId = publisherId;
+            TimesSent++;
+        }
 
-            void EnsureStateTransitionAllowed(params EventState[] allowedFromStates)
+        public void MarkAsPublishAcknowledgmentTimeout()
+        {
+            const EventState newEventState = EventState.PublishAcknowledgmentTimeout;
+
+            if (EventState == newEventState)
             {
-                if (!allowedFromStates.Any())
-                {
-                    throw new InvalidOperationException(
-                        $"Changing event log state from '{EventState}' is not allowed.");
-                }
+                return;
+            }
 
-                if (!allowedFromStates.Contains(EventState))
-                {
-                    throw new InvalidOperationException(
-                        $"Unable to change event log state from '{EventState}' to '{newEventState}' " +
-                        $"Allowed states: {string.Join(", ", allowedFromStates.Select(state => $"'{state}'"))}.");
-                }
+            EnsureStateTransitionAllowed(newEventState);
+
+            EventState = newEventState;
+            Updated = DateTimeOffset.UtcNow;
+        }
+
+        public void MarkAsCompleted()
+        {
+            const EventState newEventState = EventState.Completed;
+
+            if (EventState == newEventState)
+            {
+                return;
+            }
+
+            EnsureStateTransitionAllowed(newEventState);
+
+            EventState = newEventState;
+            Updated = DateTimeOffset.UtcNow;
+        }
+
+        private void EnsureStateTransitionAllowed(EventState newEventState)
+        {
+            HashSet<EventState> transitionAllowedFrom;
+
+            switch (newEventState)
+            {
+                case EventState.Published:
+                    transitionAllowedFrom = new HashSet<EventState>
+                    {
+                        EventState.NotPublished,
+                        EventState.PublishAcknowledgmentTimeout
+                    };
+                    break;
+                case EventState.PublishAcknowledgmentTimeout:
+                    transitionAllowedFrom = new HashSet<EventState>
+                    {
+                        EventState.Published
+                    };
+                    break;
+                case EventState.Completed:
+                    transitionAllowedFrom = new HashSet<EventState>
+                    {
+                        EventState.Published,
+                        EventState.PublishAcknowledgmentTimeout
+                    };
+                    break;
+                case EventState.NotPublished:
+                default:
+                    throw new InvalidOperationException($"Changing event log state to '{newEventState}' is not allowed.");
+            }
+
+            if (!transitionAllowedFrom.Contains(EventState))
+            {
+                var transitionAllowedFromString = string.Join(", ", transitionAllowedFrom.Select(state => $"'{state}'"));
+                throw new InvalidOperationException(
+                    $"Unable to change event log state from '{EventState}' to '{newEventState}'. " +
+                    $"To make the transition, event should be in one of the following states: {transitionAllowedFromString}.");
             }
         }
     }

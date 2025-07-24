@@ -11,10 +11,10 @@ namespace Softeq.NetKit.Components.EventBus.Service.Tests.Samples.Handlers
     {
         // Inject your app service
 
-        // TODO: Need to change this action according to requirments
-        public async Task Handle(AccountRegisteredEvent @event)
+        // TODO: Need to change this action according to requirements
+        public Task Handle(AccountRegisteredEvent @event)
         {
-            await Task.CompletedTask;
+            return Task.CompletedTask;
         }
     }
 }

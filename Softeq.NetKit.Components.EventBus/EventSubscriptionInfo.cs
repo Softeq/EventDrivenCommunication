@@ -7,14 +7,14 @@ namespace Softeq.NetKit.Components.EventBus
 {
     public class EventSubscriptionInfo
     {
-        public bool IsDynamic { get; }
-        public Type HandlerType { get; }
-
         private EventSubscriptionInfo(bool isDynamic, Type handlerType)
         {
             IsDynamic = isDynamic;
             HandlerType = handlerType;
         }
+
+        public bool IsDynamic { get; }
+        public Type HandlerType { get; }
 
         public static EventSubscriptionInfo Dynamic(Type handlerType)
         {
