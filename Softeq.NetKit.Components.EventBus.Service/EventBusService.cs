@@ -12,6 +12,7 @@ using Softeq.NetKit.Components.EventBus.Events;
 using Softeq.NetKit.Components.EventBus.Managers;
 using Softeq.NetKit.Components.EventBus.Service.Connection;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -56,13 +57,40 @@ namespace Softeq.NetKit.Components.EventBus.Service
         public Task PublishToTopicAsync(IntegrationEvent @event, int? delayInSeconds = null)
         {
             ValidateTopic();
-            return PublishEventAsync(@event, _topicConnection.TopicClient, delayInSeconds);
+            return PublishMessageAsync(() => GetMessageForPublish(@event), _topicConnection.TopicClient, delayInSeconds);
+        }
+
+        public Task PublishToTopicAsync(IList<IntegrationEvent> events)
+        {
+            ValidateTopic();
+            return PublishMessagesAsync(
+                () => events.Select(GetMessageForPublish).ToList(),
+                _topicConnection.TopicClient);
         }
 
         public Task PublishToQueueAsync(IntegrationEvent @event, int? delayInSeconds = null)
         {
             ValidateQueue();
-            return PublishEventAsync(@event, _queueConnection.QueueClient, delayInSeconds);
+            return PublishMessageAsync(() => GetMessageForPublish(@event), _queueConnection.QueueClient, delayInSeconds);
+        }
+
+        public async Task PublishToQueueAsync(IList<IntegrationEvent> events)
+        {
+            ValidateQueue();
+
+            var publishSeparately = events.Any(x => !string.IsNullOrEmpty(x.SessionId));
+            if (publishSeparately)
+            {
+                var publishTasks = events
+                    .Select(@event => PublishMessageAsync(() => GetMessageForPublish(@event), _queueConnection.QueueClient));
+                await Task.WhenAll(publishTasks);
+            }
+            else
+            {
+                await PublishMessagesAsync(
+                    () => events.Select(GetMessageForPublish).ToList(),
+                    _queueConnection.QueueClient);
+            }
         }
 
         public async Task SubscribeAsync<TEvent, TEventHandler>() where TEvent : IntegrationEvent
@@ -114,8 +142,8 @@ namespace Softeq.NetKit.Components.EventBus.Service
 
             _topicConnection.SubscriptionClient.RegisterMessageHandler(
                 async (message, token) => await HandleReceivedMessage(
-                    _topicConnection.SubscriptionClient, 
-                    _topicConnection.TopicClient, 
+                    _topicConnection.SubscriptionClient,
+                    _topicConnection.TopicClient,
                     message),
                 new MessageHandlerOptions(ExceptionReceivedHandler)
                 {
@@ -175,22 +203,33 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
         }
 
-        private Task PublishEventAsync(IntegrationEvent @event, ISenderClient client, int? delayInSeconds = null)
-        {
-            return PublishMessageAsync(() => GetMessageForPublish(@event), client, delayInSeconds);
-        }
-
-        private Task PublishMessageAsync(
-            Func<Message> messageFactory, 
-            ISenderClient client, 
+        private async Task PublishMessageAsync(
+            Func<Message> messageFactory,
+            ISenderClient client,
             int? delayInSeconds = null)
         {
-            return _publishMessageRetryPolicy.ExecuteAsync(() =>
+            await _publishMessageRetryPolicy.ExecuteAsync(async () =>
             {
                 var message = messageFactory();
-                return delayInSeconds.HasValue
-                        ? client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value))
-                        : client.SendAsync(message);
+                if (delayInSeconds.HasValue)
+                {
+                    await client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value));
+                }
+                else
+                {
+                    await client.SendAsync(message);
+                }
+            });
+        }
+
+        private async Task PublishMessagesAsync(
+            Func<IList<Message>> messageFactory,
+            ISenderClient client)
+        {
+            await _publishMessageRetryPolicy.ExecuteAsync(async () =>
+            {
+                var messages = messageFactory();
+                await client.SendAsync(messages);
             });
         }
 
@@ -320,7 +359,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
                     {
                         var publisherId = (string)eventData["PublisherId"];
                         var completedEvent = new CompletedEvent(eventId, publisherId);
-                        await PublishEventAsync(completedEvent, senderClient);
+                        await PublishMessageAsync(() => GetMessageForPublish(completedEvent), senderClient);
                     }
                 }
             }

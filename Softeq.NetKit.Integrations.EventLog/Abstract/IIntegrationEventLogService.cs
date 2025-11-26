@@ -63,6 +63,14 @@ namespace Softeq.NetKit.Integrations.EventLog.Abstract
         Task<IntegrationEventLog> MarkAsPublishedAsync(Guid eventId, string publisherId);
 
         /// <summary>
+        /// Marks the existing event logs as published.
+        /// </summary>
+        /// <param name="eventIds">The IDs of events to be marked.</param>
+        /// <param name="publisherId">Publisher ID.</param>
+        /// <returns></returns>
+        Task<IList<IntegrationEventLog>> MarkAsPublishedAsync(IList<Guid> eventIds, string publisherId);
+
+        /// <summary>
         /// Marks the published event log as acknowledgment timeout received.
         /// </summary>
         /// <param name="eventId">The ID of event to be marked.</param>
