@@ -74,7 +74,7 @@ namespace Softeq.NetKit.Components.EventBus.Service
             return PublishMessageAsync(() => GetMessageForPublish(@event), _queueConnection.QueueClient, delayInSeconds);
         }
 
-        public async Task PublishToQueueAsync(IList<IntegrationEvent> events)
+        public Task PublishToQueueAsync(IList<IntegrationEvent> events)
         {
             ValidateQueue();
 
@@ -83,14 +83,12 @@ namespace Softeq.NetKit.Components.EventBus.Service
             {
                 var publishTasks = events
                     .Select(@event => PublishMessageAsync(() => GetMessageForPublish(@event), _queueConnection.QueueClient));
-                await Task.WhenAll(publishTasks);
+                return Task.WhenAll(publishTasks);
             }
-            else
-            {
-                await PublishMessagesAsync(
-                    () => events.Select(GetMessageForPublish).ToList(),
-                    _queueConnection.QueueClient);
-            }
+
+            return PublishMessagesAsync(
+                () => events.Select(GetMessageForPublish).ToList(),
+                _queueConnection.QueueClient);
         }
 
         public async Task SubscribeAsync<TEvent, TEventHandler>() where TEvent : IntegrationEvent
@@ -203,33 +201,28 @@ namespace Softeq.NetKit.Components.EventBus.Service
             }
         }
 
-        private async Task PublishMessageAsync(
+        private Task PublishMessageAsync(
             Func<Message> messageFactory,
             ISenderClient client,
             int? delayInSeconds = null)
         {
-            await _publishMessageRetryPolicy.ExecuteAsync(async () =>
+            return _publishMessageRetryPolicy.ExecuteAsync(() =>
             {
                 var message = messageFactory();
-                if (delayInSeconds.HasValue)
-                {
-                    await client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value));
-                }
-                else
-                {
-                    await client.SendAsync(message);
-                }
+                return delayInSeconds.HasValue 
+                    ? client.ScheduleMessageAsync(message, DateTime.UtcNow.AddSeconds(delayInSeconds.Value)) 
+                    : client.SendAsync(message);
             });
         }
 
-        private async Task PublishMessagesAsync(
+        private Task PublishMessagesAsync(
             Func<IList<Message>> messageFactory,
             ISenderClient client)
         {
-            await _publishMessageRetryPolicy.ExecuteAsync(async () =>
+            return _publishMessageRetryPolicy.ExecuteAsync(() =>
             {
                 var messages = messageFactory();
-                await client.SendAsync(messages);
+                return client.SendAsync(messages);
             });
         }
 
