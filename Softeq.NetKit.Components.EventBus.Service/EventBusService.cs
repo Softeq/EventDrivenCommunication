@@ -83,11 +83,11 @@ namespace Softeq.NetKit.Components.EventBus.Service
             {
                 var publishTasks = events
                     .Select(@event => PublishMessageAsync(() => GetMessageForPublish(@event), _queueConnection.QueueClient));
-                await Task.WhenAll(publishTasks);
+                return Task.WhenAll(publishTasks);
             }
             else
             {
-                await PublishMessagesAsync(
+                return PublishMessagesAsync(
                     () => events.Select(GetMessageForPublish).ToList(),
                     _queueConnection.QueueClient);
             }
