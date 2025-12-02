@@ -155,6 +155,24 @@ namespace Softeq.NetKit.Integrations.EventLog
         }
 
         /// <inheritdoc />
+        public async Task<IList<IntegrationEventLog>> MarkAsPublishedAsync(IList<Guid> eventIds, string publisherId)
+        {
+            Ensure.Collection.HasItems(eventIds, nameof(eventIds));
+            Ensure.String.IsNotNullOrEmpty(publisherId, nameof(publisherId));
+
+            var eventLogs = await DbContext
+                .IntegrationEventLogs
+                .Where(log => eventIds.Contains(log.EventId))
+                .ToListAsync();
+            foreach (var eventLog in eventLogs)
+            {
+                eventLog.MarkAsPublished(publisherId);
+            }
+            await UpdateAsync(eventLogs);
+            return eventLogs;
+        }
+
+        /// <inheritdoc />
         public async Task<IntegrationEventLog> MarkAsPublishAcknowledgmentTimeoutAsync(Guid eventId)
         {
             Ensure.Guid.IsNotEmpty(eventId, nameof(eventId));
@@ -216,9 +234,15 @@ namespace Softeq.NetKit.Integrations.EventLog
             });
         }
 
-        private async Task UpdateAsync(IntegrationEventLog @event)
+        private async Task UpdateAsync(IntegrationEventLog eventLog)
         {
-            DbContext.IntegrationEventLogs.Update(@event);
+            DbContext.IntegrationEventLogs.Update(eventLog);
+            await DbContext.SaveChangesAsync();
+        }
+
+        private async Task UpdateAsync(IList<IntegrationEventLog> eventLogs)
+        {
+            DbContext.IntegrationEventLogs.UpdateRange(eventLogs);
             await DbContext.SaveChangesAsync();
         }
 
