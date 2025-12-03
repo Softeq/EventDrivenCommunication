@@ -190,6 +190,23 @@ namespace Softeq.NetKit.Integrations.EventLog
         }
 
         /// <inheritdoc />
+        public async Task<IList<IntegrationEventLog>> MarkAsPublishAcknowledgmentTimeoutAsync(IList<Guid> eventIds)
+        {
+            Ensure.Collection.HasItems(eventIds, nameof(eventIds));
+
+            var eventLogs = await DbContext
+                .IntegrationEventLogs
+                .Where(log => eventIds.Contains(log.EventId))
+                .ToListAsync();
+            foreach (var eventLog in eventLogs)
+            {
+                eventLog.MarkAsPublishAcknowledgmentTimeout();
+            }
+            await UpdateAsync(eventLogs);
+            return eventLogs;
+        }
+
+        /// <inheritdoc />
         public async Task<IntegrationEventLog> MarkAsCompletedAsync(Guid eventId)
         {
             Ensure.Guid.IsNotEmpty(eventId, nameof(eventId));
@@ -204,6 +221,23 @@ namespace Softeq.NetKit.Integrations.EventLog
             eventLog.MarkAsCompleted();
             await UpdateAsync(eventLog);
             return eventLog;
+        }
+
+        /// <inheritdoc />
+        public async Task<IList<IntegrationEventLog>> MarkAsCompletedAsync(IList<Guid> eventIds)
+        {
+            Ensure.Collection.HasItems(eventIds, nameof(eventIds));
+
+            var eventLogs = await DbContext
+                .IntegrationEventLogs
+                .Where(log => eventIds.Contains(log.EventId))
+                .ToListAsync();
+            foreach (var eventLog in eventLogs)
+            {
+                eventLog.MarkAsCompleted();
+            }
+            await UpdateAsync(eventLogs);
+            return eventLogs;
         }
 
         /// <inheritdoc />

@@ -77,10 +77,22 @@ namespace Softeq.NetKit.Integrations.EventLog.Abstract
         Task<IntegrationEventLog> MarkAsPublishAcknowledgmentTimeoutAsync(Guid eventId);
 
         /// <summary>
+        /// Marks the published event logs as acknowledgment timeout received.
+        /// </summary>
+        /// <param name="eventIds">The IDs of events to be marked.</param>
+        Task<IList<IntegrationEventLog>> MarkAsPublishAcknowledgmentTimeoutAsync(IList<Guid> eventIds);
+
+        /// <summary>
         /// Marks the published event log as completed.
         /// </summary>
         /// <param name="eventId">The ID of event to be marked.</param>
         Task<IntegrationEventLog> MarkAsCompletedAsync(Guid eventId);
+
+        /// <summary>
+        /// Marks the published event logs as completed.
+        /// </summary>
+        /// <param name="eventIds">The IDs of events to be marked.</param>
+        Task<IList<IntegrationEventLog>> MarkAsCompletedAsync(IList<Guid> eventIds);
 
         /// <summary>
         /// Deletes event logs by their IDs.
