@@ -2,25 +2,14 @@
 // http://www.softeq.com
 
 using Microsoft.EntityFrameworkCore;
-using Softeq.NetKit.Integrations.EventLog.Extensions;
-using Softeq.NetKit.Integrations.EventLog.Mappings;
 
 namespace Softeq.NetKit.Integrations.EventLog
 {
-    public class IntegrationEventLogContext : DbContext
+    public class IntegrationEventLogContext : IntegrationEventLogContextBase<IntegrationEventLogContext>
     {
-        public IntegrationEventLogContext(DbContextOptions<IntegrationEventLogContext> options) : base(options)
+        public IntegrationEventLogContext(DbContextOptions<IntegrationEventLogContext> options)
+            : base(options, "dbo", "IntegrationEventLogs")
         {
-        }
-
-        public DbSet<IntegrationEventLog> IntegrationEventLogs { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder builder)
-        {
-            base.OnModelCreating(builder);
-
-            builder.HasDefaultSchema("dbo");
-            builder.AddEntityConfigurationsFromAssembly<IEntityMappingConfiguration>(GetType().Assembly);
         }
     }
 }
