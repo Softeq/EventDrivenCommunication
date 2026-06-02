@@ -3,6 +3,7 @@
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Options;
 
 namespace Softeq.NetKit.Integrations.EventLog
 {
@@ -21,8 +22,14 @@ namespace Softeq.NetKit.Integrations.EventLog
         public HoopIntegrationEventLogContext CreateDbContext(string[] args)
         {
             var optionsBuilder = new DbContextOptionsBuilder<HoopIntegrationEventLogContext>();
+            var integrationEventLogContextOptions = Options.Create(
+                new IntegrationEventLogContextOptions
+                {
+                    Schema = "dbo",
+                    TableName = "HoopIntegrationEventLogs"
+                });
             optionsBuilder.UseSqlServer("data source=.\\SQLEXPRESS");
-            return new HoopIntegrationEventLogContext(optionsBuilder.Options);
+            return new HoopIntegrationEventLogContext(optionsBuilder.Options, integrationEventLogContextOptions);
         }
     }
 }

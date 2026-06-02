@@ -2,6 +2,7 @@
 // http://www.softeq.com
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Softeq.NetKit.Integrations.EventLog.Extensions;
 using Softeq.NetKit.Integrations.EventLog.Mappings;
 
@@ -10,17 +11,14 @@ namespace Softeq.NetKit.Integrations.EventLog
     public abstract class IntegrationEventLogContextBase<TContext> : DbContext
         where TContext : DbContext
     {
-        private readonly string _schema;
-        private readonly string _tableName;
+        private readonly IOptions<IntegrationEventLogContextOptions> _integrationEventLogOptions;
 
         protected IntegrationEventLogContextBase(
             DbContextOptions<TContext> options,
-            string schema,
-            string tableName)
+            IOptions<IntegrationEventLogContextOptions> integrationEventLogOptions)
             : base(options)
         {
-            _schema = schema;
-            _tableName = tableName;
+            _integrationEventLogOptions = integrationEventLogOptions;
         }
 
         public DbSet<IntegrationEventLog> IntegrationEventLogs { get; set; }
@@ -29,9 +27,9 @@ namespace Softeq.NetKit.Integrations.EventLog
         {
             base.OnModelCreating(builder);
 
-            builder.HasDefaultSchema(_schema);
+            builder.HasDefaultSchema(_integrationEventLogOptions.Value.Schema);
             builder.AddEntityConfigurationsFromAssembly<IEntityMappingConfiguration>(GetType().Assembly);
-            builder.Entity<IntegrationEventLog>().ToTable(_tableName, _schema);
+            builder.Entity<IntegrationEventLog>().ToTable(_integrationEventLogOptions.Value.TableName, _integrationEventLogOptions.Value.Schema);
         }
     }
 }
