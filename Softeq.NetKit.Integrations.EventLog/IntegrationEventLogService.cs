@@ -3,8 +3,10 @@
 
 using EnsureThat;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Softeq.NetKit.Components.EventBus.Events;
 using Softeq.NetKit.Integrations.EventLog.Abstract;
+using Softeq.NetKit.Integrations.EventLog.Dtos;
 using Softeq.NetKit.Integrations.EventLog.Exceptions;
 using System;
 using System.Collections.Generic;
@@ -15,29 +17,34 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Softeq.NetKit.Integrations.EventLog.Dtos;
 using SortOrder = Softeq.NetKit.Integrations.EventLog.Dtos.SortOrder;
 
 namespace Softeq.NetKit.Integrations.EventLog
 {
-    public class IntegrationEventLogService : IIntegrationEventLogService
+    public class IntegrationEventLogService<TContext> : IIntegrationEventLogService
+        where TContext : DbContext
     {
-        private readonly Func<IntegrationEventLogContext> _dbContextFactory;
+        private readonly TContext _dbContext;
+        private readonly IOptions<IntegrationEventLogContextOptions> _integrationEventLogContextOptions;
 
-        protected IntegrationEventLogContext DbContext => _dbContextFactory.Invoke();
-
-        public IntegrationEventLogService(Func<IntegrationEventLogContext> dbContextFactory)
+        public IntegrationEventLogService(
+            TContext dbContext,
+            IOptions<IntegrationEventLogContextOptions> options)
         {
-            _dbContextFactory = Ensure.Any.IsNotNull(dbContextFactory, nameof(dbContextFactory));
+            _dbContext = Ensure.Any.IsNotNull(dbContext, nameof(dbContext));
+            _integrationEventLogContextOptions = Ensure.Any.IsNotNull(options, nameof(options));
         }
+
+        private DbSet<IntegrationEventLog> IntegrationEventLogs => _dbContext.Set<IntegrationEventLog>();
+
+        private string FullTableName => $"{_integrationEventLogContextOptions.Value.Schema}.{_integrationEventLogContextOptions.Value.TableName}";
 
         /// <inheritdoc />
         public async Task<IntegrationEventLog> GetAsync(Guid eventId)
         {
             Ensure.Guid.IsNotEmpty(eventId, nameof(eventId));
 
-            var eventLog = await DbContext
-                .IntegrationEventLogs
+            var eventLog = await IntegrationEventLogs
                 .FirstOrDefaultAsync(log => log.EventId == eventId);
             if (eventLog == null)
             {
@@ -51,7 +58,7 @@ namespace Softeq.NetKit.Integrations.EventLog
         {
             Ensure.Any.IsNotNull(condition, nameof(condition));
 
-            return DbContext.IntegrationEventLogs.Where(condition).ToListAsync();
+            return IntegrationEventLogs.Where(condition).ToListAsync();
         }
 
         /// <inheritdoc />
@@ -75,7 +82,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             // Raw SQL is used instead of EF Core LINQ to avoid deserialization issues for old events
             var sql = $@"
                 SELECT [EventId], [EventTypeName], [Content], [Created]
-                FROM [IntegrationEventLogs]
+                FROM {FullTableName}
                 WHERE [EventState] IN ({eventStateInClause}) AND [Created] <= @createdUntil
                 ORDER BY [Created] {orderClause}
                 OFFSET @skipCount ROWS
@@ -121,7 +128,7 @@ namespace Softeq.NetKit.Integrations.EventLog
         {
             Ensure.Any.IsNotNull(condition, nameof(condition));
 
-            return DbContext.IntegrationEventLogs.AnyAsync(condition);
+            return IntegrationEventLogs.AnyAsync(condition);
         }
 
         /// <inheritdoc />
@@ -130,8 +137,8 @@ namespace Softeq.NetKit.Integrations.EventLog
             Ensure.Any.IsNotNull(@event, nameof(@event));
 
             var eventLog = new IntegrationEventLog(@event);
-            DbContext.IntegrationEventLogs.Add(eventLog);
-            await DbContext.SaveChangesAsync();
+            IntegrationEventLogs.Add(eventLog);
+            await _dbContext.SaveChangesAsync();
 
             return eventLog;
         }
@@ -142,8 +149,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             Ensure.Guid.IsNotEmpty(eventId, nameof(eventId));
             Ensure.String.IsNotNullOrEmpty(publisherId, nameof(publisherId));
 
-            var eventLog = await DbContext
-                .IntegrationEventLogs
+            var eventLog = await IntegrationEventLogs
                 .FirstOrDefaultAsync(log => log.EventId == eventId);
             if (eventLog == null)
             {
@@ -160,8 +166,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             Ensure.Collection.HasItems(eventIds, nameof(eventIds));
             Ensure.String.IsNotNullOrEmpty(publisherId, nameof(publisherId));
 
-            var eventLogs = await DbContext
-                .IntegrationEventLogs
+            var eventLogs = await IntegrationEventLogs
                 .Where(log => eventIds.Contains(log.EventId))
                 .ToListAsync();
             foreach (var eventLog in eventLogs)
@@ -177,8 +182,7 @@ namespace Softeq.NetKit.Integrations.EventLog
         {
             Ensure.Guid.IsNotEmpty(eventId, nameof(eventId));
 
-            var eventLog = await DbContext
-                .IntegrationEventLogs
+            var eventLog = await IntegrationEventLogs
                 .FirstOrDefaultAsync(log => log.EventId == eventId);
             if (eventLog == null)
             {
@@ -194,8 +198,7 @@ namespace Softeq.NetKit.Integrations.EventLog
         {
             Ensure.Collection.HasItems(eventIds, nameof(eventIds));
 
-            var eventLogs = await DbContext
-                .IntegrationEventLogs
+            var eventLogs = await IntegrationEventLogs
                 .Where(log => eventIds.Contains(log.EventId))
                 .ToListAsync();
             foreach (var eventLog in eventLogs)
@@ -211,8 +214,7 @@ namespace Softeq.NetKit.Integrations.EventLog
         {
             Ensure.Guid.IsNotEmpty(eventId, nameof(eventId));
 
-            var eventLog = await DbContext
-                .IntegrationEventLogs
+            var eventLog = await IntegrationEventLogs
                 .FirstOrDefaultAsync(log => log.EventId == eventId);
             if (eventLog == null)
             {
@@ -228,8 +230,7 @@ namespace Softeq.NetKit.Integrations.EventLog
         {
             Ensure.Collection.HasItems(eventIds, nameof(eventIds));
 
-            var eventLogs = await DbContext
-                .IntegrationEventLogs
+            var eventLogs = await IntegrationEventLogs
                 .Where(log => eventIds.Contains(log.EventId))
                 .ToListAsync();
             foreach (var eventLog in eventLogs)
@@ -250,7 +251,7 @@ namespace Softeq.NetKit.Integrations.EventLog
 
             // Raw SQL is used instead of EF Core LINQ to avoid deserialization issues for old events
             var sql = $@"
-                DELETE FROM [IntegrationEventLogs] 
+                DELETE FROM {FullTableName} 
                 WHERE [EventId] IN ({eventIdInClause})";
 
             var parameters = eventIds
@@ -270,14 +271,14 @@ namespace Softeq.NetKit.Integrations.EventLog
 
         private async Task UpdateAsync(IntegrationEventLog eventLog)
         {
-            DbContext.IntegrationEventLogs.Update(eventLog);
-            await DbContext.SaveChangesAsync();
+            IntegrationEventLogs.Update(eventLog);
+            await _dbContext.SaveChangesAsync();
         }
 
         private async Task UpdateAsync(IList<IntegrationEventLog> eventLogs)
         {
-            DbContext.IntegrationEventLogs.UpdateRange(eventLogs);
-            await DbContext.SaveChangesAsync();
+            IntegrationEventLogs.UpdateRange(eventLogs);
+            await _dbContext.SaveChangesAsync();
         }
 
         private async Task<TResult> ExecuteWithConnectionAsync<TResult>(
@@ -285,7 +286,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             List<DbParameter> parameters,
             Func<DbCommand, Task<TResult>> executor)
         {
-            var connection = DbContext.Database.GetDbConnection();
+            var connection = _dbContext.Database.GetDbConnection();
             var connectionInitiallyOpen = connection.State == ConnectionState.Open;
 
             try

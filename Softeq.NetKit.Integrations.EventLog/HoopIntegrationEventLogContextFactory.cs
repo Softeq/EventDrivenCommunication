@@ -17,19 +17,19 @@ namespace Softeq.NetKit.Integrations.EventLog
     /// 3. Open Package Manager Console. Set current project as the default project
     /// 4. Create migration by running command: add-migration migration_name -context IntegrationEventLogContext
     /// </summary>
-    public class IntegrationEventLogContextFactory : IDesignTimeDbContextFactory<IntegrationEventLogContext>
+    public class HoopIntegrationEventLogContextFactory : IDesignTimeDbContextFactory<HoopIntegrationEventLogContext>
     {
-        public IntegrationEventLogContext CreateDbContext(string[] args)
+        public HoopIntegrationEventLogContext CreateDbContext(string[] args)
         {
-            var optionsBuilder = new DbContextOptionsBuilder<IntegrationEventLogContext>();
+            var optionsBuilder = new DbContextOptionsBuilder<HoopIntegrationEventLogContext>();
             var integrationEventLogContextOptions = Options.Create(
                 new IntegrationEventLogContextOptions
                 {
                     Schema = "dbo",
-                    TableName = "IntegrationEventLogs"
+                    TableName = "HoopIntegrationEventLogs"
                 });
             optionsBuilder.UseSqlServer("data source=.\\SQLEXPRESS");
-            return new IntegrationEventLogContext(optionsBuilder.Options, integrationEventLogContextOptions);
+            return new HoopIntegrationEventLogContext(optionsBuilder.Options, integrationEventLogContextOptions);
         }
     }
 }

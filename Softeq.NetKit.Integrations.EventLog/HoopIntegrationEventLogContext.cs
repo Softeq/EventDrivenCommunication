@@ -6,12 +6,12 @@ using Microsoft.Extensions.Options;
 
 namespace Softeq.NetKit.Integrations.EventLog
 {
-    public class IntegrationEventLogContext : IntegrationEventLogContextBase<IntegrationEventLogContext>
+    public class HoopIntegrationEventLogContext : IntegrationEventLogContextBase<HoopIntegrationEventLogContext>
     {
-        public IntegrationEventLogContext(
-            DbContextOptions<IntegrationEventLogContext> options,
+        public HoopIntegrationEventLogContext(
+            DbContextOptions<HoopIntegrationEventLogContext> dbContextOptions,
             IOptions<IntegrationEventLogContextOptions> integrationEventLogContextOptions)
-            : base(options, integrationEventLogContextOptions)
+            : base(dbContextOptions, integrationEventLogContextOptions)
         {
         }
     }
