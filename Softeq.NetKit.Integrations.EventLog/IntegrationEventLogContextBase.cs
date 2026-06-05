@@ -1,6 +1,7 @@
 ﻿// Developed by Softeq Development Corporation
 // http://www.softeq.com
 
+using EnsureThat;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Softeq.NetKit.Integrations.EventLog.Extensions;
@@ -18,7 +19,10 @@ namespace Softeq.NetKit.Integrations.EventLog
             IOptions<IntegrationEventLogContextOptions> integrationEventLogOptions)
             : base(options)
         {
-            _integrationEventLogOptions = integrationEventLogOptions;
+            _integrationEventLogOptions = Ensure.Any.IsNotNull(integrationEventLogOptions, nameof(integrationEventLogOptions));
+            Ensure.Any.IsNotNull(_integrationEventLogOptions.Value, $"{nameof(integrationEventLogOptions)}.{nameof(integrationEventLogOptions.Value)}");
+            Ensure.String.IsNotNullOrEmpty(_integrationEventLogOptions.Value.Schema, nameof(IntegrationEventLogContextOptions.Schema));
+            Ensure.String.IsNotNullOrEmpty(_integrationEventLogOptions.Value.TableName, nameof(IntegrationEventLogContextOptions.TableName));
         }
 
         public DbSet<IntegrationEventLog> IntegrationEventLogs { get; set; }

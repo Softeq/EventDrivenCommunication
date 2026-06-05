@@ -21,21 +21,32 @@ using SortOrder = Softeq.NetKit.Integrations.EventLog.Dtos.SortOrder;
 
 namespace Softeq.NetKit.Integrations.EventLog
 {
+    // Backward-compatible non-generic service for existing consumers/DI registrations.
+    public class IntegrationEventLogService : IntegrationEventLogService<IntegrationEventLogContext>
+    {
+        public IntegrationEventLogService(Func<IntegrationEventLogContext> dbContextFactory)
+            : base(dbContextFactory, Options.Create(new IntegrationEventLogContextOptions()))
+        {
+        }
+    }
+
     public class IntegrationEventLogService<TContext> : IIntegrationEventLogService
         where TContext : DbContext
     {
-        private readonly TContext _dbContext;
+        private readonly Func<TContext> _dbContextFactory;
+
+        protected TContext DbContext => _dbContextFactory.Invoke();
         private readonly IOptions<IntegrationEventLogContextOptions> _integrationEventLogContextOptions;
 
         public IntegrationEventLogService(
-            TContext dbContext,
+            Func<TContext> dbContextFactory,
             IOptions<IntegrationEventLogContextOptions> options)
         {
-            _dbContext = Ensure.Any.IsNotNull(dbContext, nameof(dbContext));
+            _dbContextFactory = Ensure.Any.IsNotNull(dbContextFactory, nameof(dbContextFactory));
             _integrationEventLogContextOptions = Ensure.Any.IsNotNull(options, nameof(options));
         }
 
-        private DbSet<IntegrationEventLog> IntegrationEventLogs => _dbContext.Set<IntegrationEventLog>();
+        private DbSet<IntegrationEventLog> IntegrationEventLogs => DbContext.Set<IntegrationEventLog>();
 
         private string FullTableName => $"{_integrationEventLogContextOptions.Value.Schema}.{_integrationEventLogContextOptions.Value.TableName}";
 
@@ -138,7 +149,7 @@ namespace Softeq.NetKit.Integrations.EventLog
 
             var eventLog = new IntegrationEventLog(@event);
             IntegrationEventLogs.Add(eventLog);
-            await _dbContext.SaveChangesAsync();
+            await DbContext.SaveChangesAsync();
 
             return eventLog;
         }
@@ -272,13 +283,13 @@ namespace Softeq.NetKit.Integrations.EventLog
         private async Task UpdateAsync(IntegrationEventLog eventLog)
         {
             IntegrationEventLogs.Update(eventLog);
-            await _dbContext.SaveChangesAsync();
+            await DbContext.SaveChangesAsync();
         }
 
         private async Task UpdateAsync(IList<IntegrationEventLog> eventLogs)
         {
             IntegrationEventLogs.UpdateRange(eventLogs);
-            await _dbContext.SaveChangesAsync();
+            await DbContext.SaveChangesAsync();
         }
 
         private async Task<TResult> ExecuteWithConnectionAsync<TResult>(
@@ -286,7 +297,7 @@ namespace Softeq.NetKit.Integrations.EventLog
             List<DbParameter> parameters,
             Func<DbCommand, Task<TResult>> executor)
         {
-            var connection = _dbContext.Database.GetDbConnection();
+            var connection = DbContext.Database.GetDbConnection();
             var connectionInitiallyOpen = connection.State == ConnectionState.Open;
 
             try
