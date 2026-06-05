@@ -24,8 +24,8 @@ namespace Softeq.NetKit.Integrations.EventLog
     // Backward-compatible non-generic service for existing consumers/DI registrations.
     public class IntegrationEventLogService : IntegrationEventLogService<IntegrationEventLogContext>
     {
-        public IntegrationEventLogService(Func<IntegrationEventLogContext> dbContextFactory)
-            : base(dbContextFactory, Options.Create(new IntegrationEventLogContextOptions()))
+        public IntegrationEventLogService(Func<IntegrationEventLogContext> dbContextProvider)
+            : base(dbContextProvider, Options.Create(new IntegrationEventLogContextOptions()))
         {
         }
     }
@@ -33,16 +33,16 @@ namespace Softeq.NetKit.Integrations.EventLog
     public class IntegrationEventLogService<TContext> : IIntegrationEventLogService
         where TContext : DbContext
     {
-        private readonly Func<TContext> _dbContextFactory;
+        private readonly Func<TContext> _dbContextProvider;
 
-        protected TContext DbContext => _dbContextFactory.Invoke();
+        protected TContext DbContext => _dbContextProvider.Invoke();
         private readonly IOptions<IntegrationEventLogContextOptions> _integrationEventLogContextOptions;
 
         public IntegrationEventLogService(
-            Func<TContext> dbContextFactory,
+            Func<TContext> dbContextProvider,
             IOptions<IntegrationEventLogContextOptions> options)
         {
-            _dbContextFactory = Ensure.Any.IsNotNull(dbContextFactory, nameof(dbContextFactory));
+            _dbContextProvider = Ensure.Any.IsNotNull(dbContextProvider, nameof(dbContextProvider));
             _integrationEventLogContextOptions = Ensure.Any.IsNotNull(options, nameof(options));
         }
 
