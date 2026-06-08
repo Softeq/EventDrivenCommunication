@@ -5,8 +5,8 @@ namespace Softeq.NetKit.Integrations.EventLog
 {
     public class IntegrationEventLogContextOptions
     {
-        public string Schema { get; set; }
+        public string Schema { get; set; } = "dbo";
 
-        public string TableName { get; set; }
+        public string TableName { get; set; } = "IntegrationEventLogs";
     }
 }
