@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Softeq.NetKit.Components.EventBus\Softeq.NetKit.Components.EventBus.csproj" />
+    <ProjectReference Include="..\Softeq.NetKit.Components.EventBus.Service\Softeq.NetKit.Components.EventBus.Service.csproj" />
   </ItemGroup>
 
 </Project>

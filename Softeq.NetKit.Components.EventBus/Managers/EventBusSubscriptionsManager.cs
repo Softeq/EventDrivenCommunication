@@ -34,7 +34,11 @@ namespace Softeq.NetKit.Components.EventBus.Managers
         {
             var eventName = GetEventKey<TEvent>();
             DoAddSubscription(typeof(TEventHandler), eventName, false);
-            _eventTypes.Add(typeof(TEvent));
+
+            if (!_eventTypes.Contains(typeof(TEvent)))
+            {
+                _eventTypes.Add(typeof(TEvent));
+            }
         }
 
         public void RemoveSubscription<TEvent, TEventHandler>() where TEvent : IntegrationEvent where TEventHandler : IEventHandler<TEvent>

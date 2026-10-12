@@ -65,8 +65,9 @@ namespace Softeq.NetKit.Components.EventBus.Service
         {
             var eventName = typeof(TEvent).Name;
 
-            var containsKey = _subscriptionsManager.HasSubscriptionsForEvent<TEvent>();
-            if (!containsKey)
+            var isHandlerSubscribed = _subscriptionsManager.GetEventHandlers<TEvent>()
+                .Any(subscription => subscription.HandlerType == typeof(TEventHandler));
+            if (!isHandlerSubscribed)
             {
                 if (IsSubscriptionAvailable)
                 {
@@ -82,7 +83,10 @@ namespace Softeq.NetKit.Components.EventBus.Service
         {
             var eventName = typeof(TEvent).Name;
 
-            if (IsSubscriptionAvailable)
+            // The subscription rule is shared by all handlers of the event, so keep it while any other handler remains.
+            var hasOtherHandlers = _subscriptionsManager.GetEventHandlers<TEvent>()
+                .Any(subscription => subscription.HandlerType != typeof(TEventHandler));
+            if (IsSubscriptionAvailable && !hasOtherHandlers)
             {
                 await RemoveSubscriptionRule(eventName);
             }
